@@ -8,9 +8,9 @@ setup(
     # Needed to actually package something
     packages=['lixipy'],
     # Needed for dependencies
-    install_requires=['numpy', 'scipy', 'matplotlib', 'pandas', 'scikit-learn', 'tensorflow', 'tkinter'],
+    install_requires=['numpy', 'scipy', 'matplotlib', 'pandas', 'scikit-learn', 'tensorflow', 'tk'],
     # *strongly* suggested for sharing
-    version='0.1',
+    version='0.1dev',
     # The license can be anything you like
     license='MIT',
     description='Packaged used for the Python Processing applied at the Lixi EEG Project',
