@@ -1,0 +1,13 @@
+README.md
+setup.py
+LixiPy.egg-info/PKG-INFO
+LixiPy.egg-info/SOURCES.txt
+LixiPy.egg-info/dependency_links.txt
+LixiPy.egg-info/requires.txt
+LixiPy.egg-info/top_level.txt
+lixipy/__init__.py
+lixipy/basics.py
+lixipy/freqs.py
+lixipy/intels.py
+lixipy/ops.py
+lixipy/times.py
