@@ -69,7 +69,7 @@ def get_dir(initial_dir = "/", window_title = "Choose a Directory"):
 
 def load_dataframe(file_path, index_col = 0, sep = ",", header = None, skiprows= 10, 
                        names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
-                       has_tag_column = True, tag_column_name = 'mlp_labels', tag_column_index = 7):
+                       tag_column_name = 'mlp_labels', tag_column_index = 7):
     """
     Description:
         Combine get_file or get_dir depending on the case and load a file with the input parameters
@@ -105,7 +105,7 @@ def load_dataframe(file_path, index_col = 0, sep = ",", header = None, skiprows=
 
 def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10, 
                     names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
-                    has_tag_column = True, tag_column_name = 'mlp_labels', tag_column_index = 7, 
+                    tag_column_name = 'mlp_labels', tag_column_index = 7, 
                     initial_dir = "/", search_dir = True):
     """  
     Description:
@@ -142,7 +142,7 @@ def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
         pd_dir, pd_name = os.path.split(pd_path)
 
     pd_df, pd_tag_column = load_dataframe(pd_path, index_col, sep, header, skiprows, 
-                                              names, has_tag_column, tag_column_name, tag_column_index)
+                                              names, tag_column_name, tag_column_index)
     
     return pd_df, pd_tag_column, pd_name, pd_dir, pd_path
 
@@ -150,7 +150,7 @@ def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
 
 def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 10, 
                             names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
-                            has_tag_column = True, tag_column_name = 'mlp_labels', tag_column_index = 7,
+                            tag_column_name = 'mlp_labels', tag_column_index = 7,
                             filtering_list = [],
                             initial_dir = "/", search_dir = True,
                             return_dict = False, return_joined = True):
@@ -204,7 +204,8 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
                 print("Loaded Signal: " + file_path)
                 file_name = file.split("-")[0]
                 
-                signal_pd, tag_column = load_dataframe(file_path = file_path) #MISSING: FILL THIS WITH VALUES
+                signal_pd, tag_column = load_dataframe(file_path = file_path, index_col = index_col, sep = sep, header = header, skiprows= skiprows, 
+                       names= names, tag_column_name = tag_column_name, tag_column_index = tag_column_index)
             
                 tag_column_names.append(tag_column)
                 
@@ -226,6 +227,51 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
     elif return_joined:
         return full_pd, tag_column_names[0], signal_names
 
+def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label=None, 
+            search_dir=True, initial_dir = "/", file_name="CSVTable.txt", print_success=False):
+    """
+    Description:
+        Save data as a CSV (comma-separated values). Preferably data should be passed as a pandas DataFrame or Series.
+        If search_dir is True a window will open to search for the directory where to save the CSV, if False that initial dir will be used as the saving directory.
+
+    Inputs:
+        - data (DataFrame, Series, array-like): data to be saved as a CSV file.
+        - sep, columns, header, index, index_label: parameters used for the pandas.DataFrame.to_csv method, see https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_csv.html for more info on them.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to save the CSV file.
+        - initial_dir (string): initial directory where to look for the directory to save the file to if search_dir is True, or straightly the saving directory if search_dir is False.
+        - file_name (string): name for the saved CSV file. Remember to include the extension!
+    
+    Outputs:
+        - saving_path (string): path where the csv file was saved.
+    """
+    
+    if type(data) != pd.DataFrame or type(data) != pd.Series:
+        saved_data = pd.DataFrame(data)
+    else:
+        saved_data = data
+    
+    #Exception on file_name
+    if len(file_name.split(".")) < 2:
+        raise ValueError("Please include the file extension in file_name so that the file is saved correctly.")
+    if len(file_name.split(".")) > 2:
+        raise ValueError("It would seem you include a dot (.) in the name of the file aside from the one separating the file extension, this might cause trouble when saving the file, please exclude it.")
+    if any([symbol in file_name for symbol in ["\\", "/", ":", "?", "*", '"', "<", ">", "|"]]):
+        raise ValueError('It would seem you included an invalid simbol in the name if the file, this are: \\, /, :, ?, *, ", <, >, |')
+    
+    if search_dir:
+        saving_path = get_dir(initial_dir=initial_dir, window_title="Where will you save the CSV?") + "/" + file_name
+    else:
+        if initial_dir == "/":
+            saving_path = initial_dir + file_name
+        else:
+            saving_path = initial_dir + "/" + file_name
+
+    saved_data.to_csv(saving_path, sep=sep, columns=columns, header=header, index=index, index_label=index_label)
+    
+    if print_success:
+        print("CSV saved to file", saving_path)
+    
+    return saving_path
 # - FV Loading and Saving
 #MISSING: Redo load FV and should generalize it or bring it to freqs and times separately
 #MISSING: Basing on the save weights, save model JSON and load model JSON, should add here functions to read and save JSON and CSVs, and then put the export FV, Weights and models on freqs and intel
