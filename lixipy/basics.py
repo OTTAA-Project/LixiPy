@@ -185,8 +185,6 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
         - tag_column_names(list): tag column names or name depending on the case
         - signal_names(list of str): list of names of the files in the directory, but not necessarily the ones loaded in the dataframe
         - full_pd(pd): full pandas Dataframe
-        
-        
     """    
     assert return_dict != return_joined, "return_dict and return_joined must be opposite since both or none of them can be return"
     
@@ -231,3 +229,41 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
 # - FV Loading and Saving
 #MISSING: Redo load FV and should generalize it or bring it to freqs and times separately
 #MISSING: Basing on the save weights, save model JSON and load model JSON, should add here functions to read and save JSON and CSVs, and then put the export FV, Weights and models on freqs and intel
+
+def remove_from_foldername(original_dir, to_remove):
+    """
+    Description:
+        Function that deletes the "BEST" of the folder that was compared and is no longer the best. 
+   
+    Inputs:
+        - original_dir(str): Directory of the model that is no longer the best
+        - to_remove(str): word that will be removed
+           
+    Output:
+        - None.
+    """
+    folder_name = original_dir.split("/")[-1] #we take the folder's name from the whole path
+    folder_dir = original_dir.split(folder_name)[0] #and the folder's location
+    if to_remove + " " in folder_name: #if the word we want to remove was spaced from the others we'll have an extra space that will look bad, so we create another exception
+        new_folder_name = folder_name.replace(to_remove + " ", "")
+        new_dir = folder_dir + new_folder_name
+        while True: #when we change the folder name there might be another folder on the same location with the same name as what we want to replace our folders name to
+            try:
+                os.rename(original_dir, new_dir)
+            except OSError: #this will raise an OSError, which we use to add the word "New" to the folder we are modyfing, if that exists to, we add another "New" and so on
+                new_dir = new_dir + " New"
+            else: #once we are able to change the name of the folder, we break from the infinite loop.
+                break
+            
+    elif to_remove in folder_name:
+        new_folder_name = folder_name.replace(to_remove, "")
+        new_dir = folder_dir + new_folder_name
+        while True: #when we change the folder name there might be another folder on the same location with the same name as what we want to replace our folders name to
+            try:
+                os.rename(original_dir, new_dir)
+            except OSError: #this will raise an OSError, which we use to add the word "New" to the folder we are modyfing, if that exists to, we add another "New" and so on
+                new_dir = new_dir + " New"
+            else: #once we are able to change the name of the folder, we break from the infinite loop.
+                break
+    else: #if the word we want to remove is not in the folder's name, we just pass. this else wouldn't be necessary, but just in case we want to add something in the future
+        pass
