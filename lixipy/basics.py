@@ -65,7 +65,7 @@ def get_dir(initial_dir = "/", window_title = "Choose a Directory"):
   
     return dir_path
 
-#--- Data Loading
+#--- DataFrame Loading
 
 def load_dataframe(file_path, index_col = 0, sep = ",", header = None, skiprows= 10, 
                        names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
@@ -102,8 +102,6 @@ def load_dataframe(file_path, index_col = 0, sep = ",", header = None, skiprows=
     pd_df = pd.read_csv(file_path, sep = sep, header = header, index_col = index_col, names = names, skiprows = skiprows)
   
     return pd_df, tag_column_name
-
-# Full Dataframe Searching and Loading
 
 def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10, 
                     names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
@@ -143,7 +141,7 @@ def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
         pd_path = initial_dir
         pd_dir, pd_name = os.path.split(pd_path)
 
-    pd_df, pd_tag_column = dataframe_creation(pd_path, index_col, sep, header, skiprows, 
+    pd_df, pd_tag_column = load_dataframe(pd_path, index_col, sep, header, skiprows, 
                                               names, has_tag_column, tag_column_name, tag_column_index)
     
     return pd_df, pd_tag_column, pd_name, pd_dir, pd_path
@@ -208,7 +206,7 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
                 print("Loaded Signal: " + file_path)
                 file_name = file.split("-")[0]
                 
-                signal_pd, tag_column = dataframe_creation(file_path = file_path)
+                signal_pd, tag_column = load_dataframe(file_path = file_path) #MISSING: FILL THIS WITH VALUES
             
                 tag_column_names.append(tag_column)
                 
@@ -230,28 +228,6 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
     elif return_joined:
         return full_pd, tag_column_names[0], signal_names
 
-#Redo load FV
-
-def export_feature_vector(name, save_dir, features_pd, labels_pd,
-                          feature_discriminator_start = "/FV_X-", label_discriminator_start = "/FV_y-",
-                          end_extension = "features.csv"):
-    """
-    Description:
-        Features and labels will be saved as appropiate in each case, under the name "name", with the corresponding discriminator
-        Feature and label will have the same extension at the end, but diferent discriminator start.
-    
-    Inputs:
-        - name(str): name of the signal
-        - save_dir(str): where you will save the feature vector
-        - features_pd(pd): features of the feature vector
-        - labels_pd(pd): labels of the feature vector
-        - feature_discriminator_start(str): name to discriminate the feature
-        - label_discriminator_start(str): name to discriminate the label
-        - end_extension(str): end extension of the file
-    
-    Outputs:
-        - None.
-        
-    """
-    features_pd.to_csv(save_dir + feature_discriminator_start + name + end_extension, header = None, index = None)
-    labels_pd.to_csv(save_dir + label_discriminator_start + name + end_extension, header = None, index = None)
+# - FV Loading and Saving
+#MISSING: Redo load FV and should generalize it or bring it to freqs and times separately
+#MISSING: Basing on the save weights, save model JSON and load model JSON, should add here functions to read and save JSON and CSVs, and then put the export FV, Weights and models on freqs and intel
