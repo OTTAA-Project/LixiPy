@@ -10,7 +10,7 @@ else:
     from lixipy import freqs
 
 import tensorflow as tf
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 from sklearn.model_selection import train_test_split
