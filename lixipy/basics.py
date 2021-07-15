@@ -65,6 +65,54 @@ def get_dir(initial_dir = "/", window_title = "Choose a Directory"):
   
     return dir_path
 
+def better_listdir(initial_dir="/", search_dir=True, name_filter=None, keep_files=True, keep_folders=False): #MISSING: analyze subdirectories/subfolders.
+    """
+    Description:
+        Better version of the os.listdir function with file types and name filtering.
+        If search_dir is True a window will open to search for the directory where to list directories from, if False that initial dir will be used.
+
+    Inputs:
+        - initial_dir (string): initial directory where to look for the directory to list directories from if search_dir is True, or straightly the directory if search_dir is False.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to list directories from.
+        - name_filter (string or list of string): filters for names of files that should be kept. If a list is passed, all conditions must be met for the file to be kept in the list.
+        - keep_files (bool): filter to keep the file type directories.
+        - keep_folders (bool): filter to keep the folder type directories.
+    Outputs:
+        - list: list of directories that meet the specified criteria.
+    """
+    
+    if search_dir:
+        saving_path = get_file(initial_dir=initial_dir, window_title="Where will you list directories from?")
+    else:
+        saving_path = initial_dir
+    
+    main_list=os.listdir(saving_path)
+    folders_files_filtering = []
+    name_filtering = []
+    for elem in main_list:
+        if "." in elem:
+            if keep_files:
+                folders_files_filtering.append(elem)
+        else:
+            if keep_folders:
+                folders_files_filtering.append(elem)
+    
+    if name_filter is not None:
+        if type(name_filter) == str:
+            for elem in folders_files_filtering:
+                if name_filter in elem:
+                    name_filtering.append(elem)
+        if type(name_filter) == list:
+            for elem in folders_files_filtering:
+                if all([filt in elem for filt in name_filter]):
+                    name_filtering.append(elem)
+        else:
+            raise ValueError("Incompatible type of name_filter parameter, should be string or list.")
+
+        return name_filter
+    else:
+        return folders_files_filtering
+
 #--- DataFrame Loading
 
 def load_dataframe(file_path, index_col = 0, sep = ",", header = None, skiprows= 10, 
@@ -227,6 +275,37 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
     elif return_joined:
         return full_pd, tag_column_names[0], signal_names
 
+#CSV loading
+def load_csv(initial_dir = "/", search_dir=True, 
+            sep=",", header=None, names=None, index_col=None, skiprows=0, lineterminator=None, delim_whitespace=False, 
+            print_success=False):
+    """
+    Description:
+        Load data from a CSV (comma-separated values) file.
+        If search_dir is True a window will open to search for the directory where to load the CSV from, if False that initial dir will be used as the loading directory.
+
+    Inputs:
+        - initial_dir (string): initial directory where to look for the directory to load the file from if search_dir is True, or straightly the loading directory if search_dir is False.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to load the CSV file from.
+        - sep, header, names, index_col, skiprows, lineterminator, delim_whitespace: parameters used for the pandas.read_csv method, see https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html for more info on them.
+        - print_success (bool): if True, a message will be printed when successfully loading the file.
+    
+    Outputs:
+        - df (pandas.DataFrame): DataFrame object created from reading the CSV file
+    """
+    if search_dir:
+        saving_path = get_file(initial_dir=initial_dir, window_title="Where will you load the CSV from?")
+    else:
+        saving_path = initial_dir
+
+    df = pd.read_csv(saving_path, sep=sep, header=header, names=names, index_col=index_col, skiprows=skiprows, lineterminator=lineterminator, delim_whitespace=delim_whitespace)
+
+    if print_success:
+        print("Loaded file:", saving_path)
+    return df
+
+#CSV saving for arrays like FVs
+
 def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label=None, 
             search_dir=True, initial_dir = "/", file_name="CSVTable.txt", print_success=False):
     """
@@ -240,12 +319,13 @@ def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label
         - search_dir (boolean): wether or not to open a search window to look for the directory where to save the CSV file.
         - initial_dir (string): initial directory where to look for the directory to save the file to if search_dir is True, or straightly the saving directory if search_dir is False.
         - file_name (string): name for the saved CSV file. Remember to include the extension!
-    
+        - print_success (bool): if True, a message will be printed when successfully saving the file.
+
     Outputs:
         - saving_path (string): path where the csv file was saved.
     """
     
-    if type(data) != pd.DataFrame or type(data) != pd.Series:
+    if type(data) != pd.DataFrame or type(data) != pd.Series: #MISSING: should check if the array has more than two dimensions, but I don't know how to do it with a list.
         saved_data = pd.DataFrame(data)
     else:
         saved_data = data
@@ -272,8 +352,6 @@ def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label
         print("CSV saved to file", saving_path)
     
     return saving_path
-# - FV Loading and Saving
-#MISSING: Redo load FV and should generalize it or bring it to freqs and times separately
 #MISSING: Basing on the save weights, save model JSON and load model JSON, should add here functions to read and save JSON and CSVs, and then put the export FV, Weights and models on freqs and intel
 
 def remove_from_foldername(original_dir, to_remove):
