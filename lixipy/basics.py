@@ -16,6 +16,8 @@ import os
 
 import pandas as pd
 
+import json
+
 #--- File path and directory
 
 def get_file(initial_dir = "/", window_title = "Select a File"):
@@ -294,7 +296,7 @@ def load_csv(initial_dir = "/", search_dir=True,
         - df (pandas.DataFrame): DataFrame object created from reading the CSV file
     """
     if search_dir:
-        saving_path = get_file(initial_dir=initial_dir, window_title="Where will you load the CSV from?")
+        _, _, saving_path = get_file(initial_dir=initial_dir, window_title="Where will you load the CSV from?")
     else:
         saving_path = initial_dir
 
@@ -352,7 +354,81 @@ def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label
         print("CSV saved to file", saving_path)
     
     return saving_path
-#MISSING: Basing on the save weights, save model JSON and load model JSON, should add here functions to read and save JSON and CSVs, and then put the export FV, Weights and models on freqs and intel
+
+#JSON to dictionary Loading
+def load_json_todict(initial_dir = "/", search_dir=True,  
+                    print_success=False):
+    """
+    Description:
+        Load data from a JSON (JavaScript Object Notation) file to a dictionary object.
+        If search_dir is True a window will open to search for the directory where to load the JSON from, if False that initial dir will be used as the loading directory.
+
+    Inputs:
+        - initial_dir (string): initial directory where to look for the directory to load the file from if search_dir is True, or straightly the loading directory if search_dir is False.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to load the JSON file from.
+        - print_success (bool): if True, a message will be printed when successfully loading the file.
+    
+    Outputs:
+        - json_dict (dict): dict object created from reading the JSON file
+    """
+    if search_dir:
+        _, _, saving_path = get_file(initial_dir=initial_dir, window_title="Where will you load the JSON from?")
+    else:
+        saving_path = initial_dir
+
+    with open(saving_path, "r") as file:
+        json_dict = json.load(file)
+
+    if print_success:
+        print("Loaded file:", saving_path)
+    return json_dict
+
+#JSON saving from dict
+def save_json_fromdict(data, search_dir=True, initial_dir = "/", file_name="JSONdict.json", print_success=False):
+    """
+    Description:
+        Save data as a JSON (JavaScript Object Notation). Preferably data should be passed as a dict.
+        If search_dir is True a window will open to search for the directory where to save the JSON, if False that initial dir will be used as the saving directory.
+
+    Inputs:
+        - data (dict, dict-like): data to be saved as a JSON file.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to save the JSON file.
+        - initial_dir (string): initial directory where to look for the directory to save the file to if search_dir is True, or straightly the saving directory if search_dir is False.
+        - file_name (string): name for the saved JSON file. Remember to include the extension!
+        - print_success (bool): if True, a message will be printed when successfully saving the file.
+
+    Outputs:
+        - saving_path (string): path where the JSON file was saved.
+    """
+    
+    if type(data) != dict: 
+        saved_data = dict(data)
+    else:
+        saved_data = data
+    
+    #Exception on file_name
+    if len(file_name.split(".")) < 2:
+        raise ValueError("Please include the file extension in file_name so that the file is saved correctly.")
+    if len(file_name.split(".")) > 2:
+        raise ValueError("It would seem you include a dot (.) in the name of the file aside from the one separating the file extension, this might cause trouble when saving the file, please exclude it.")
+    if any([symbol in file_name for symbol in ["\\", "/", ":", "?", "*", '"', "<", ">", "|"]]):
+        raise ValueError('It would seem you included an invalid simbol in the name if the file, this are: \\, /, :, ?, *, ", <, >, |')
+    
+    if search_dir:
+        saving_path = get_dir(initial_dir=initial_dir, window_title="Where will you save the JSON?") + "/" + file_name
+    else:
+        if initial_dir == "/":
+            saving_path = initial_dir + file_name
+        else:
+            saving_path = initial_dir + "/" + file_name
+
+    with open(saving_path, "w") as file:
+        json.dump(saved_data, file)
+
+    if print_success:
+        print("JSON saved to file", saving_path)
+    
+    return saving_path
 
 def remove_from_foldername(original_dir, to_remove):
     """
