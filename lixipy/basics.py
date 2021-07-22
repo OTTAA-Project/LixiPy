@@ -198,7 +198,7 @@ def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
 
 # Many DataFrame Searching and Loading from Dir
 
-def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 10, 
+def build_many_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10, 
                             names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
                             tag_column_name = 'mlp_labels', tag_column_index = 7,
                             filtering_list = [],

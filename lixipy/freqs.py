@@ -57,43 +57,6 @@ def fft_calc(windowed_signal, sample_rate, norm = "basic", filter_window = None)
   
     return fft_freq, fft_values
 
-# Bins Finder
-
-def find_freq_bins(array, f, find_alternative = True):
-    """   
-    Description:
-        Looks for frequency bins and returns which sub-index it is in
-        If find_alternative then when the requested frequency does not exist in your frequencies array, the algorithm will returns the sub-index with the closest frequency
-        Example:
-            >>> array = [21.5, 21.9, 22.3, 22.7, 23.1]
-            >>> f = 22
-            >>> find_alternative = True
-            i = 1
-
-    Inputs:
-        - array(np.arrat): array of frequencieese
-        - f(float): requested frequency
-        - find_alternative(bool): boolean to choose if find and alternative frequency in case that the requested frequency does not exist in your frequencies array
-            
-    Outputs:
-        - i(int): sub-index where finds the requested frequency
-        - i+1(int): sub-index where finds the requested frequency
-            
-        
-    """
-    for i in range(len(array)-1):
-        low_d = f - array[i]
-        upp_d = array[i+1] - f
-
-        if upp_d >= 0:
-            if low_d == 0 or low_d < upp_d:
-                return i
-    
-            elif low_d > upp_d:
-                return i+1
-
-        #MISSING: agregar aca el else para el find alternative, checkear si esto se puede usar en las funciones de fv gen
-
 #--- Feature Vector Generator
 
 def feature_vector_gen(fft_freq, fft_values, interest_freqs, neighbour_or_interval = "neighbour",
@@ -388,5 +351,3 @@ def feature_vector_matrix(signal, sample_rate, labels, startpoint_timestamps, in
     #add cheking of the labels vs onehots
   
     return fv_bins, fv_matrix, label_matrix
-
-#MISSING: Redo Load and save FV refering to methods in the basics module
