@@ -16,6 +16,8 @@ import os
 
 import pandas as pd
 
+import json
+
 #--- File path and directory
 
 def get_file(initial_dir = "/", window_title = "Select a File"):
@@ -64,6 +66,54 @@ def get_dir(initial_dir = "/", window_title = "Choose a Directory"):
     root.mainloop()
   
     return dir_path
+
+def better_listdir(initial_dir="/", search_dir=True, name_filter=None, keep_files=True, keep_folders=False): #MISSING: analyze subdirectories/subfolders.
+    """
+    Description:
+        Better version of the os.listdir function with file types and name filtering.
+        If search_dir is True a window will open to search for the directory where to list directories from, if False that initial dir will be used.
+
+    Inputs:
+        - initial_dir (string): initial directory where to look for the directory to list directories from if search_dir is True, or straightly the directory if search_dir is False.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to list directories from.
+        - name_filter (string or list of string): filters for names of files that should be kept. If a list is passed, all conditions must be met for the file to be kept in the list.
+        - keep_files (bool): filter to keep the file type directories.
+        - keep_folders (bool): filter to keep the folder type directories.
+    Outputs:
+        - list: list of directories that meet the specified criteria.
+    """
+    
+    if search_dir:
+        saving_path = get_file(initial_dir=initial_dir, window_title="Where will you list directories from?")
+    else:
+        saving_path = initial_dir
+    
+    main_list=os.listdir(saving_path)
+    folders_files_filtering = []
+    name_filtering = []
+    for elem in main_list:
+        if "." in elem:
+            if keep_files:
+                folders_files_filtering.append(elem)
+        else:
+            if keep_folders:
+                folders_files_filtering.append(elem)
+    
+    if name_filter is not None:
+        if type(name_filter) == str:
+            for elem in folders_files_filtering:
+                if name_filter in elem:
+                    name_filtering.append(elem)
+        if type(name_filter) == list:
+            for elem in folders_files_filtering:
+                if all([filt in elem for filt in name_filter]):
+                    name_filtering.append(elem)
+        else:
+            raise ValueError("Incompatible type of name_filter parameter, should be string or list.")
+
+        return name_filter
+    else:
+        return folders_files_filtering
 
 #--- DataFrame Loading
 
@@ -148,7 +198,7 @@ def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
 
 # Many DataFrame Searching and Loading from Dir
 
-def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 10, 
+def build_many_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10, 
                             names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
                             tag_column_name = 'mlp_labels', tag_column_index = 7,
                             filtering_list = [],
@@ -227,6 +277,37 @@ def build_dataframe_fromdir(index_col = 0, sep = ",", header = None, skiprows= 1
     elif return_joined:
         return full_pd, tag_column_names[0], signal_names
 
+#CSV loading
+def load_csv(initial_dir = "/", search_dir=True, 
+            sep=",", header=None, names=None, index_col=None, skiprows=0, lineterminator=None, delim_whitespace=False, 
+            print_success=False):
+    """
+    Description:
+        Load data from a CSV (comma-separated values) file.
+        If search_dir is True a window will open to search for the directory where to load the CSV from, if False that initial dir will be used as the loading directory.
+
+    Inputs:
+        - initial_dir (string): initial directory where to look for the directory to load the file from if search_dir is True, or straightly the loading directory if search_dir is False.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to load the CSV file from.
+        - sep, header, names, index_col, skiprows, lineterminator, delim_whitespace: parameters used for the pandas.read_csv method, see https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html for more info on them.
+        - print_success (bool): if True, a message will be printed when successfully loading the file.
+    
+    Outputs:
+        - df (pandas.DataFrame): DataFrame object created from reading the CSV file
+    """
+    if search_dir:
+        _, _, saving_path = get_file(initial_dir=initial_dir, window_title="Where will you load the CSV from?")
+    else:
+        saving_path = initial_dir
+
+    df = pd.read_csv(saving_path, sep=sep, header=header, names=names, index_col=index_col, skiprows=skiprows, lineterminator=lineterminator, delim_whitespace=delim_whitespace)
+
+    if print_success:
+        print("Loaded file:", saving_path)
+    return df
+
+#CSV saving for arrays like FVs
+
 def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label=None, 
             search_dir=True, initial_dir = "/", file_name="CSVTable.txt", print_success=False):
     """
@@ -240,12 +321,13 @@ def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label
         - search_dir (boolean): wether or not to open a search window to look for the directory where to save the CSV file.
         - initial_dir (string): initial directory where to look for the directory to save the file to if search_dir is True, or straightly the saving directory if search_dir is False.
         - file_name (string): name for the saved CSV file. Remember to include the extension!
-    
+        - print_success (bool): if True, a message will be printed when successfully saving the file.
+
     Outputs:
         - saving_path (string): path where the csv file was saved.
     """
     
-    if type(data) != pd.DataFrame or type(data) != pd.Series:
+    if type(data) != pd.DataFrame or type(data) != pd.Series: #MISSING: should check if the array has more than two dimensions, but I don't know how to do it with a list.
         saved_data = pd.DataFrame(data)
     else:
         saved_data = data
@@ -272,9 +354,81 @@ def save_csv(data, sep = ",", columns=None, header=True, index=True, index_label
         print("CSV saved to file", saving_path)
     
     return saving_path
-# - FV Loading and Saving
-#MISSING: Redo load FV and should generalize it or bring it to freqs and times separately
-#MISSING: Basing on the save weights, save model JSON and load model JSON, should add here functions to read and save JSON and CSVs, and then put the export FV, Weights and models on freqs and intel
+
+#JSON to dictionary Loading
+def load_json_todict(initial_dir = "/", search_dir=True,  
+                    print_success=False):
+    """
+    Description:
+        Load data from a JSON (JavaScript Object Notation) file to a dictionary object.
+        If search_dir is True a window will open to search for the directory where to load the JSON from, if False that initial dir will be used as the loading directory.
+
+    Inputs:
+        - initial_dir (string): initial directory where to look for the directory to load the file from if search_dir is True, or straightly the loading directory if search_dir is False.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to load the JSON file from.
+        - print_success (bool): if True, a message will be printed when successfully loading the file.
+    
+    Outputs:
+        - json_dict (dict): dict object created from reading the JSON file
+    """
+    if search_dir:
+        _, _, saving_path = get_file(initial_dir=initial_dir, window_title="Where will you load the JSON from?")
+    else:
+        saving_path = initial_dir
+
+    with open(saving_path, "r") as file:
+        json_dict = json.load(file)
+
+    if print_success:
+        print("Loaded file:", saving_path)
+    return json_dict
+
+#JSON saving from dict
+def save_json_fromdict(data, search_dir=True, initial_dir = "/", file_name="JSONdict.json", print_success=False):
+    """
+    Description:
+        Save data as a JSON (JavaScript Object Notation). Preferably data should be passed as a dict.
+        If search_dir is True a window will open to search for the directory where to save the JSON, if False that initial dir will be used as the saving directory.
+
+    Inputs:
+        - data (dict, dict-like): data to be saved as a JSON file.
+        - search_dir (boolean): wether or not to open a search window to look for the directory where to save the JSON file.
+        - initial_dir (string): initial directory where to look for the directory to save the file to if search_dir is True, or straightly the saving directory if search_dir is False.
+        - file_name (string): name for the saved JSON file. Remember to include the extension!
+        - print_success (bool): if True, a message will be printed when successfully saving the file.
+
+    Outputs:
+        - saving_path (string): path where the JSON file was saved.
+    """
+    
+    if type(data) != dict: 
+        saved_data = dict(data)
+    else:
+        saved_data = data
+    
+    #Exception on file_name
+    if len(file_name.split(".")) < 2:
+        raise ValueError("Please include the file extension in file_name so that the file is saved correctly.")
+    if len(file_name.split(".")) > 2:
+        raise ValueError("It would seem you include a dot (.) in the name of the file aside from the one separating the file extension, this might cause trouble when saving the file, please exclude it.")
+    if any([symbol in file_name for symbol in ["\\", "/", ":", "?", "*", '"', "<", ">", "|"]]):
+        raise ValueError('It would seem you included an invalid simbol in the name if the file, this are: \\, /, :, ?, *, ", <, >, |')
+    
+    if search_dir:
+        saving_path = get_dir(initial_dir=initial_dir, window_title="Where will you save the JSON?") + "/" + file_name
+    else:
+        if initial_dir == "/":
+            saving_path = initial_dir + file_name
+        else:
+            saving_path = initial_dir + "/" + file_name
+
+    with open(saving_path, "w") as file:
+        json.dump(saved_data, file)
+
+    if print_success:
+        print("JSON saved to file", saving_path)
+    
+    return saving_path
 
 def remove_from_foldername(original_dir, to_remove):
     """

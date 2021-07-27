@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split
 def model_train(model, X, y, epochs, optimizer = 'adam', loss = 'categorical_crossentropy', compile_model = True,
                 validation_set_mode = "split", val_part = 0.33, val_X = None, val_y = None, 
                 batch_size = 32, random_state=42,
-                plot_loss = True, plot_accuracy = True):
+                metrics = ["accuracy", "loss"], plot_metrics = True):
     
     """   
     Description:
@@ -44,14 +44,13 @@ def model_train(model, X, y, epochs, optimizer = 'adam', loss = 'categorical_cro
         - val_y (numpy.ndarrat): labels to use for validation in validation_set_mode = "load" case
         - batch_size (int): size of the batch
         - random_state (int): repeatability of the validation set.
-        - plot_loss (boolean): wether or not to plot loss.
-        - plot_accuracy (boolean): wether or not to plot accuracy.
+        - metrics (list of str): metrics to include in the training process, refer to https://keras.io/api/metrics/
+        - plot_metrics (boolean or list of booleans): wether or not to plot each metric
     
     Output:
         - model (tensorflow.keras.Sequential): trained model
         - history (tensorflow.keras.History): object containing info from the training process.
         
-    
     """
     
     assert validation_set_mode == "split" or validation_set_mode == "load", str(validation_set_mode) + " is not a valid option for validation_set_mode"
@@ -66,8 +65,23 @@ def model_train(model, X, y, epochs, optimizer = 'adam', loss = 'categorical_cro
         X_test = val_X
         y_test = val_y
         
+    if type(metrics) == str: #add metrics as a tf.keras.metrics.Metrics object or a custom function
+        metrics = [metrics]
+    elif type(metrics) == list:
+        if not all([type(m) == str for m in metrics]):
+            raise ValueError("Training metrics should be passed as a list of strings of the keras module metrics")
+    else:
+        raise ValueError("Training metrics should be passed as a list of strings of the keras module metrics")
+    
+    if type(plot_metrics) == bool:
+        plot_metrics = [plot_metrics]*len(metrics)
+    elif type(plot_metrics) == list:
+        assert len(metrics) == len(plot_metrics), "The length of the metrics requested for and the length of the plot metrics boolean don't coincide."
+    else:
+        raise ValueError("plot_metrics should be passed as a bool (in case the decision is the same for every metric) or a list of bools (one for each metric).")
+
     if compile_model:
-        model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
+        model.compile(optimizer=optimizer, loss=loss, metrics=[m for m in metrics if m != "loss"])
    
         print(model.summary())
     
@@ -76,34 +90,21 @@ def model_train(model, X, y, epochs, optimizer = 'adam', loss = 'categorical_cro
                         batch_size = batch_size
                         )
     
-    
-    # summarize history for loss
-    if plot_loss:
-        plt.figure()
-        plt.plot(history.history['loss'])
-        plt.plot(history.history['val_loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.show()
-        
-    #summarize history for accuracy
-    if plot_accuracy:
-        plt.figure()
-        plt.plot(history.history['accuracy'])
-        plt.plot(history.history['val_accuracy'])
-        plt.title('model accuracy')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.show()        
+    for m, b in zip(metrics, plot_metrics):
+        if b:
+            plt.figure()
+            plt.plot(history.history[m])
+            plt.plot(history.history['val_'+m])
+            plt.title(m+" Plot")
+            plt.ylabel(m)
+            plt.xlabel('epoch')
+            plt.legend(['train', 'test'], loc='upper left')
+            plt.show()  
     
     return model, history
 
 #--- Model Test
-#MISSING: change to buffer test or smth
-def model_test(model, X_test, y_test, predictions = 10, buffer_size = 30):
+def model_buffer_test(model, X_test, y_test, predictions = 10, buffer_size = 30):
     
     """   
     Description:

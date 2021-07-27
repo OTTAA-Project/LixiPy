@@ -137,6 +137,50 @@ def timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2, 
     elif export_list:
         return timestamps_list
 
+#Index Finder
+def find_index(array, value, find_alternative = True, ascending_descending_array = True):
+    """   
+    Description:
+        Looks for value inside the array and return which index it is in.
+        If find_alternative then when the requested value does not exist in array, the algorithm will return the index with the closest value
+        Example:
+            >>> array = [21.5, 21.9, 22.3, 22.7, 23.1]
+            >>> value = 22
+            >>> find_alternative = True
+            >>> find_index(array, value, find_alternative)
+            Out: 1
+
+    Inputs:
+        - array(np.array or array-like object): array to search through.
+        - value(int or float): value to search for.
+        - find_alternative(bool): boolean to choose to find the nearest value in case the requested does not exist in array.
+        - ascending_descending_array(bool): boolean to tell the array is in ascending or descending value order, in which case the value can be found faster
+    Outputs:
+        - i(int): index where the value (or it's alternative) was found
+    """
+    last_dif = float('inf')
+    min_dif = float('inf')
+    min_dif_index = None
+    for i in range(len(array)):
+        dif = abs(array[i]-value)
+        
+        if dif == 0:
+            return i
+        
+        if find_alternative:
+            if ascending_descending_array:
+                if last_dif<=dif:
+                    return i-1
+                else:
+                    last_dif = dif
+            else:
+                if dif<min_dif:
+                    min_dif=dif
+                    min_dif_index=i
+
+    return min_dif_index
+        #MISSING: agregar aca el else para el find alternative, checkear si esto se puede usar en las funciones de fv gen
+
 # Laplacian Optimization: Objective Function
 
 def objective_f(fft, fft_bins, freq, bw_bins = 2, bw_neighbour = 2):
@@ -169,15 +213,15 @@ def objective_f(fft, fft_bins, freq, bw_bins = 2, bw_neighbour = 2):
     high_bw_bins = low_bw_bins + 1 #Because of intervals being [inclusive, exclusive]
     #bw_neighbour would be in frequency values, not samples
     
-    main_freq_bin = freqs.find_freq_bins(fft_bins, freq, True)
+    main_freq_bin = find_index(fft_bins, freq, True)
     main_freq_average = np.mean(fft[main_freq_bin-low_bw_bins:main_freq_bin+high_bw_bins])
     
     if bw_neighbour == "all":
         low_neighbour_average = np.mean(fft[0:main_freq_bin - bw_bins])
         upp_neighbour_average = np.mean(fft[main_freq_bin + bw_bins: -1])        
     else:
-        low_neighbour_bin = freqs.find_freq_bins(fft_bins, freq - bw_neighbour, True)
-        upp_neighbour_bin = freqs.find_freq_bins(fft_bins, freq + bw_neighbour, True)
+        low_neighbour_bin = find_index(fft_bins, freq - bw_neighbour, True)
+        upp_neighbour_bin = find_index(fft_bins, freq + bw_neighbour, True)
         low_neighbour_average = np.mean(fft[low_neighbour_bin-low_bw_bins:low_neighbour_bin+high_bw_bins])
         upp_neighbour_average = np.mean(fft[upp_neighbour_bin-low_bw_bins:upp_neighbour_bin+high_bw_bins])
     
