@@ -18,6 +18,23 @@ import pandas as pd
 
 import json
 
+#--- Yes No Question
+def yn_quest(question, y_variant="Y", n_variant="N", case_sensitive=False):
+    y = str(y_variant)
+    n = str(n_variant)
+    while True:
+        answer = str(input(question + "[" + y_variant + "/" + n_variant + "]: "))
+        if not case_sensitive:
+            y = y.lower()
+            n = n.lower()
+            answer = answer.lower()
+        if answer == y:
+            return True
+        elif answer == n:
+            return False
+        else:
+            print("\n---> The answer is not valid, please use one of: " + y + " or " + n + "\n")
+
 #--- File path and directory
 
 def get_file(initial_dir = "/", window_title = "Select a File"):
