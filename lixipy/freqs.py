@@ -279,7 +279,7 @@ def safe_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
         
     """
     sample_loss = 0
-
+    fv_matrix = None
     #FFT Calculation
     for i in range(len(labels)):
       l = labels[i]
@@ -380,8 +380,7 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
       temp_labels[:, i] = 1.0
       labels_matrix_list.append(temp_labels)
 
-    fft_matrix = fft_calc(np.concatenate(fv_matrix_list, axis=0), sample_rate, norm, filter_window)
-    fft_bins = np.fft.rfftfreq(window_size, d=1/sample_rate)
+    fft_bins, fft_matrix = fft_calc(np.concatenate(fv_matrix_list, axis=0), sample_rate, norm, filter_window)
 
     fv_bins, fv_matrix = feature_vector_gen(fft_bins, fft_matrix, interest_freqs, neighbour_or_interval, include_harmonics, apply_SNR, same_bw_forSNR, bw_forSNR, interest_bw, max_bins, include_extremes)
 
