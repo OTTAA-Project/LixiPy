@@ -32,7 +32,7 @@ def fft_calc(windowed_signal, sample_rate, norm = "basic", filter_window = None)
         - fft_values(numpy.ndarray): fft values
         
     """
-    N = int(windowed_signal.shape[0])
+    N = int(windowed_signal.shape[-1])
     
     if filter_window == None:
       windowed_signal = windowed_signal
@@ -43,7 +43,7 @@ def fft_calc(windowed_signal, sample_rate, norm = "basic", filter_window = None)
       assert filter_window.shape[0] == N
       windowed_signal = windowed_signal*filter_window 
     else:
-      raise ValueError    
+      raise ValueError("Incorrect argument passed for filter_window, see docs for more info.")    
     
     if norm == "ortho":
       norm_factor = 1/np.sqrt(N)
@@ -52,7 +52,7 @@ def fft_calc(windowed_signal, sample_rate, norm = "basic", filter_window = None)
     else:
       norm_factor = 1 #replace by RaiseError
   
-    fft_values = abs(np.fft.rfft(windowed_signal)*norm_factor)
+    fft_values = abs(np.fft.rfft(windowed_signal, axis = -1)*norm_factor)
     fft_freq = np.fft.rfftfreq(n = N, d = 1/sample_rate)
   
     return fft_freq, fft_values
