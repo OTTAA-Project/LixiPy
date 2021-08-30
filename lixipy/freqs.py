@@ -244,8 +244,7 @@ def feature_vector_gen_neighbour(fft_freq, fft_values, interest_freqs,
     else:
         print("Invalid fft_values shape.")
         raise ValueError
-
-    print(maskSNR)
+        
     if apply_SNR:
         rate = np.mean(noise_vector, axis = -1)
         if len(fft_values.shape) == 2:
@@ -383,8 +382,6 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
 
     fft_matrix = fft_calc(np.concatenate(fv_matrix_list, axis=0), sample_rate, norm, filter_window)
     
-    #MISSING: still need to figure out how to properly get the fv_index_mask and the noise_index_mask, crop fv_matrix into the features on interest freqs, obtain the SNR ratio and make the division.
-    #MISSING: will I change the feature_vector_gens to work with matrix?
     fft_bins = np.fft.rfftfreq(window_size, d=1/sample_rate)
 
     if neighbour_or_interval == "interval":
