@@ -381,17 +381,9 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
       labels_matrix_list.append(temp_labels)
 
     fft_matrix = fft_calc(np.concatenate(fv_matrix_list, axis=0), sample_rate, norm, filter_window)
-    
     fft_bins = np.fft.rfftfreq(window_size, d=1/sample_rate)
 
-    if neighbour_or_interval == "interval":
-      assert type(interest_freqs) == tuple, "For Interval method, a tuple must be given on interest_freqs with minimum and maximum values"
-      fv_bins, fv_matrix = feature_vector_gen_interval(fft_bins, fft_matrix, interest_freqs, apply_SNR, include_extremes)
-    else:
-      pass
-      
-    
-    fv_matrix = abs(np.fft.rfft(fv_matrix, axis=-1))
+    fv_bins, fv_matrix = feature_vector_gen(fft_bins, fft_matrix, interest_freqs, neighbour_or_interval, include_harmonics, apply_SNR, same_bw_forSNR, bw_forSNR, interest_bw, max_bins, include_extremes)
 
     return fv_bins, fv_matrix, np.concatenate(labels_matrix_list, axis=0)
     
