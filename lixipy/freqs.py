@@ -197,36 +197,58 @@ def feature_vector_gen_neighbour(fft_freq, fft_values, interest_freqs,
         - feature_vector(np.array): feature vector values
         
     """
-    N = fft_freq.shape[0]
-    feature_vector = []
-    feature_vector_bins = []
-    noise_vector = []
+    N = fft_freq.shape[-1]
+    mask = []
+    maskSNR = []
     
     for particular_freqs in [freqs for freqs in interest_freqs if freqs is not None]: #if the list of interest_freqs has a None value, then there's a tag of no stimuli
         bins_sum = 0
         harm_bins_sum = 0
         for i in range(N):
             fft_bin = fft_freq[i] 
-            fft_value = fft_values[i] 
             
             if fft_bin <= (particular_freqs + interest_bw) and fft_bin >= (particular_freqs - interest_bw) and bins_sum < max_bins:
-                feature_vector.append(fft_value)
-                feature_vector_bins.append(fft_bin)
+                mask.append(True)
                 bins_sum += 1
             elif fft_bin <= (2*particular_freqs + interest_bw) and fft_bin >= (2*particular_freqs - interest_bw) and harm_bins_sum < max_bins and include_harmonics: 
-                feature_vector.append(fft_value)
-                feature_vector_bins.append(fft_bin)
+                mask.append(True)
                 harm_bins_sum += 1
+            else:
+                mask.append(False)
             
-            elif apply_SNR:
-                if same_bw_forSNR:
-                    noise_vector.append(fft_value)
+            if apply_SNR and not same_bw_forSNR:
+                if fft_bin >= (particular_freqs + bw_forSNR) and fft_bin <= (particular_freqs - bw_forSNR):
+                    maskSNR.append(True)
                 else:
-                    if fft_bin >= (particular_freqs + bw_forSNR) and fft_bin <= (particular_freqs - bw_forSNR):
-                        noise_vector.append(fft_value)
+                    maskSNR.append(False)
     
+    mask = np.array(mask)
+    maskSNR = np.array(maskSNR)
+    
+    if len(fft_values.shape) == 1:
+        feature_vector = np.array(fft_values[mask])
+        feature_vector_bins = np.array(fft_freq[mask])
+
+        if same_bw_forSNR:
+            noise_vector = np.array(fft_values[~mask])
+        else:
+            noise_vector = np.array(fft_values[maskSNR])
+    elif len(fft_values.shape) == 2:
+        feature_vector = np.array(fft_values[:, mask])
+        feature_vector_bins = np.array(fft_freq[mask])
+
+        if same_bw_forSNR:
+            noise_vector = np.array(fft_values[:, ~mask])
+        else:
+            noise_vector = np.array(fft_values[:, maskSNR])
+    else:
+        print("Invalid fft_values shape.")
+        raise ValueError
+  
     if apply_SNR:
-        rate = np.mean(np.array(noise_vector))
+        rate = np.mean(noise_vector, axis = -1)
+        if len(fft_values.shape) == 2:
+          rate = rate.reshape((rate.shape[0], 1))
     else:
         rate = 1.0
         
