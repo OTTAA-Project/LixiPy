@@ -352,12 +352,13 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
         for n, v in enumerate(vector_reshaped_list):
           final_reshaped_vector[n:n+v.shape[0]*temp:temp,:] = v
         #print(final_reshaped_vector)
-        fv_matrix_list.append(final_reshaped_vector)
+        fv_matrix_list.append(final_reshaped_vector.copy()) #MISSING: Maybe we put this method in times and import it  and only apply the transform here.
         each_label_matrix_size += final_reshaped_vector.shape[0]
       temp_labels = np.zeros((each_label_matrix_size, len(labels)))
       temp_labels[:, i] = 1.0
       labels_matrix_list.append(temp_labels)
 
+    fft_matrix = fft_calc(np.concatenate(fv_matrix_list, axis=0), sample_rate, norm, filter_window)
     
     #MISSING: still need to figure out how to properly get the fv_index_mask and the noise_index_mask, crop fv_matrix into the features on interest freqs, obtain the SNR ratio and make the division.
     #MISSING: will I change the feature_vector_gens to work with matrix?
@@ -365,12 +366,11 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
 
     if neighbour_or_interval == "interval":
       assert type(interest_freqs) == tuple, "For Interval method, a tuple must be given on interest_freqs with minimum and maximum values"
-      feature_vector_bins, feature_vector = feature_vector_gen_interval(fft_bins, fft_values, interest_freqs,
-                                                                          apply_SNR, include_extremes)
+      fv_bins, fv_matrix = feature_vector_gen_interval(fft_bins, fft_matrix, interest_freqs, apply_SNR, include_extremes)
     else:
       pass
       
-    fv_matrix = np.concatenate(fv_matrix_list, axis=0)
+    
     fv_matrix = abs(np.fft.rfft(fv_matrix, axis=-1))
 
     return fv_bins, fv_matrix, np.concatenate(labels_matrix_list, axis=0)
