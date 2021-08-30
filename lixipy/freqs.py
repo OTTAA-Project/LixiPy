@@ -217,14 +217,14 @@ def feature_vector_gen_neighbour(fft_freq, fft_values, interest_freqs,
                 mask.append(False)
             
             if apply_SNR and not same_bw_forSNR:
-                if fft_bin >= (particular_freqs + bw_forSNR) and fft_bin <= (particular_freqs - bw_forSNR):
+                if (fft_bin >= (particular_freqs + bw_forSNR) or fft_bin <= (particular_freqs - bw_forSNR)) or ((fft_bin >= (2*particular_freqs + bw_forSNR) or fft_bin <= (2*particular_freqs - bw_forSNR)) and include_harmonics):
                     maskSNR.append(True)
                 else:
                     maskSNR.append(False)
     
     mask = np.array(mask)
     maskSNR = np.array(maskSNR)
-    
+
     if len(fft_values.shape) == 1:
         feature_vector = np.array(fft_values[mask])
         feature_vector_bins = np.array(fft_freq[mask])
@@ -244,7 +244,8 @@ def feature_vector_gen_neighbour(fft_freq, fft_values, interest_freqs,
     else:
         print("Invalid fft_values shape.")
         raise ValueError
-  
+
+    print(maskSNR)
     if apply_SNR:
         rate = np.mean(noise_vector, axis = -1)
         if len(fft_values.shape) == 2:
