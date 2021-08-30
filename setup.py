@@ -12,6 +12,6 @@ setup(
     # *strongly* suggested for sharing
     version='0.3dev',
     # The license can be anything you like
-    license='MIT',
+    license='',
     description='Packaged used for the Python Processing applied at the Lixi EEG Project',
 )

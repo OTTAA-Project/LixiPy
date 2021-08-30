@@ -143,17 +143,28 @@ def feature_vector_gen_interval(fft_freq, fft_values, interest_freqs,
     else:
         mask = (fft_freq > interval_min) & (fft_freq < interval_max)
     
-    feature_vector = fft_values[mask]
-    feature_vector_bins = fft_freq[mask]
-    
-    noise_vector = fft_values[~mask] #~ is a bitwise NOT operation, it doesn't raise arror like not operator, see: https://www.geeksforgeeks.org/python-bitwise-operators/
-    
+    if len(fft_values.shape) == 1:
+      feature_vector = fft_values[mask]
+      feature_vector_bins = fft_freq[mask]
+      
+      noise_vector = fft_values[~mask] #~ is a bitwise NOT operation, it doesn't raise arror like not operator, see: https://www.geeksforgeeks.org/python-bitwise-operators/
+    elif len(fft_values.shape) == 2:
+      feature_vector = fft_values[:, mask]
+      feature_vector_bins = fft_freq[mask]
+
+      noise_vector = fft_values[:, ~mask]
+    else:
+      print("Invalid fft_values shape.")
+      raise ValueError
+
     if apply_SNR:
-        rate = np.mean(np.array(noise_vector))
+        rate = np.mean(np.array(noise_vector), axis = -1)
+        if len(noise_vector.shape) == 2:
+          rate = rate.reshape((rate.shape[0], 1))
     else:
         rate = 1.0
         
-    feature_vector = np.array(feature_vector) / rate
+    feature_vector = np.array(feature_vector) / rate #If any dimension coincide to be broadcasted togheter, the element-wise operation will go through that dimension, in this case doing matrix_row/mean_of_that_row
     feature_vector_bins = np.array(feature_vector_bins)
     
     return feature_vector_bins, feature_vector
@@ -226,47 +237,18 @@ def feature_vector_gen_neighbour(fft_freq, fft_values, interest_freqs,
 
 #--  Feature Matrix Generator
 
-def feature_vector_matrix(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval = "neighbour",
-                          stimulation_time = 10, stimulation_time_inseconds = True, stimulation_delay = 0, stimulation_delay_inseconds = True,
-                          stride = 10, stride_inseconds = False, filter_window = None,
-                          window_size = 512, window_size_inseconds = False, 
-                          norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
-                          apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
-                          include_extremes = True,
-                          plot_average = False):
+def safe_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval,
+                            stim_size, stim_delay, stride, filter_window = None, window_size = 512, 
+                            norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
+                            apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
+                            include_extremes = True,
+                            plot_average = False):
     """
     Description:
-        You load a complete signal, with all the descriptions and it generate a full matrix with all the feature vector.
-        If neighbour_or_interval = "neighbour", a list of freq must be given on interest_freqs. This list will be as long as frequencies of interest exist 
-        If neighbour_or_interval = "interval", a tuple of minumum and maximum values must be given on interest_freqs. It will be a tuple of size 0 to 2.
-        If apply_SNR = True, then feature vector values are divided by the mean of the values of the frequencies that are not included inside the fv.
-        Stimulation time could be writte in seconds or samples
+        This method is slower than the fast_feature_matrix_gen, but works perfectly with a stride that is not an even divisor of the window size.
     
     Inputs:
-        - signal(txt): signal to generate the feature vector
-        - sample_rate(int): sample rate to transform from waves/samples waves/sec ???
-        - labels(list): labels of the feature vector
-        - startpoint_timestamps(list):
-        - interest_freqs(list or tuple): contain the interest frequencies on a list or a tuple with the minimun and maximun values. Depending on the case
-        - neighbour_or_interval(str): Define if the feature vector is generated usin an interval or neighbour. One of this two options must be choose
-        - stimulation_time(int or float): stimulation time to select an interval. It could be in second or samples
-        - stimulation_time_inseconds(bool): to specify whether stimulation_time is written in seconds or in samples
-        - stimulation_delay(int or float): to select a delay from timestartpoint_timestamps
-        - stimulation_delay_inseconds(bool): to specify whether stimulation_delay is written in seconds or in samples
-        - stride(int): stride of the window in each step
-        - stride_inseconds(bool): to specify whether stride is written in seconds or in samples
-        - filter_window(str): To select an especiifc window 
-        - window_size(int): window size
-        - window_size_inseconds(bool): to specify whether window_size is written in seconds or in samples
-        - norm(str): normalization for the fft calculation
-        - max_bins(int): maximum number of bins, to configure neighbour method
-        - interest_bw(float): bandwidth to configure neighbour method
-        - include_harmonics(bool): Boolean to choose if onclude harmonics or not to configure neighbour method. 
-        - apply_SNR(bool): Boolean to choose if apply SNR or not. 
-        - same_bw_forSNR(bool): To choose if use the same bandwidth for the SNR or not to configure neighbour method.
-        - bw_forSNR(float): To choose a particular bandwidth for SNR calc to configure neighbour method.
-        - include_extremes(bool): Choose if include extremes or not if neighbour_orinterval = "interval" 
-        - plot_average(bool): to plot the feature vector average
+        See doc for feature_matrix_gen. Only difference lies in that every time interval or vector size is only passed in sample measure, use feature_matrix_gen with method="safe" to pass it in seconds.
         
     Outputs:
         - feature_vector_bins(np.array): feature vector bins
@@ -274,32 +256,8 @@ def feature_vector_matrix(signal, sample_rate, labels, startpoint_timestamps, in
         - label_matrix(np.array): matrix with all the labels.
         
     """
-    assert len(labels) == len(startpoint_timestamps), "label list and startpoint_timestamps list must be of equal length"
-
-    #Window size
-    if window_size_inseconds:
-      N = window_size * sample_rate
-    else:
-      N = window_size
-    
-    #Stride size
-    if stride_inseconds:
-      stride = stride*sample_rate
-  
-    #Stimulation size
-    if stimulation_time_inseconds:
-      stim_size = stimulation_time*sample_rate
-    else:
-      stim_size = stimulation_time
-      
-    if stimulation_delay_inseconds:
-      stim_delay = stimulation_delay*sample_rate
-    else:
-      stim_delay = stimulation_delay
-  
     sample_loss = 0
-    fv_matrix = None
-    
+
     #FFT Calculation
     for i in range(len(labels)):
       l = labels[i]
@@ -312,7 +270,7 @@ def feature_vector_matrix(signal, sample_rate, labels, startpoint_timestamps, in
         j = 0 #this represents the stride on each particular window
         while True:
           start_sample = t + j + stim_delay
-          end_sample = t + j + stim_delay + N
+          end_sample = t + j + stim_delay + window_size
   
           if end_sample > (stim_size+t): #in case stride is not a divisor of the stimulation interval
             if start_sample < (stim_size+t):
@@ -348,6 +306,189 @@ def feature_vector_matrix(signal, sample_rate, labels, startpoint_timestamps, in
           
     print("The selected parameters led to the loss of ", str(sample_loss), " samples.")
   
-    #add cheking of the labels vs onehots
-  
     return fv_bins, fv_matrix, label_matrix
+
+def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval,
+                            stim_size, stim_delay, stride, filter_window = None, window_size = 512, 
+                            norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
+                            apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
+                            include_extremes = True,
+                            plot_average = False):
+    """
+    Description:
+        This method is faster than the safe_feature_matrix_gen, but may alter data with a stride that is not an even divisor of the window size.
+    
+    Inputs:
+        See doc for feature_matrix_gen. Only difference lies in that every time interval or vector size is only passed in sample measure, use feature_matrix_gen with method="fast" to pass it in seconds.
+        
+    Outputs:
+        - feature_vector_bins(np.array): feature vector bins
+        - fv_matrix(np.array): matrix full of feature vector
+        - label_matrix(np.array): matrix with all the labels.
+        
+    """
+    total_dataloss = 0
+    fv_matrix_list = []
+    labels_matrix_list = []
+    for i in range(len(labels)):
+      each_label_matrix_size = 0
+      for t in startpoint_timestamps[i]:
+        vector = signal[t+stim_delay:t+stim_size]
+        end_list_for_dataloss = []
+        vector_reshaped_list = []
+        final_shape = 0
+        for start in range(0, window_size, stride):
+          quant = (vector.shape[0]-start)//window_size
+          end = quant*window_size+start
+          end_list_for_dataloss.append(end)
+          vector_reshaped = vector[start:end].reshape(quant, window_size)
+          #print("Vector reshaped:\n", vector_reshaped)
+          final_shape += vector_reshaped.shape[0]
+          vector_reshaped_list.append(vector_reshaped.copy())
+        #print("dataloss: ",  vector.shape[0] - np.array(end_list_for_dataloss).max())
+        total_dataloss += vector.shape[0] - np.array(end_list_for_dataloss).max()
+        final_reshaped_vector = np.empty((final_shape, window_size))
+        temp = len(vector_reshaped_list)
+        for n, v in enumerate(vector_reshaped_list):
+          final_reshaped_vector[n:n+v.shape[0]*temp:temp,:] = v
+        #print(final_reshaped_vector)
+        fv_matrix_list.append(final_reshaped_vector)
+        each_label_matrix_size += final_reshaped_vector.shape[0]
+      temp_labels = np.zeros((each_label_matrix_size, len(labels)))
+      temp_labels[:, i] = 1.0
+      labels_matrix_list.append(temp_labels)
+
+    
+    #MISSING: still need to figure out how to properly get the fv_index_mask and the noise_index_mask, crop fv_matrix into the features on interest freqs, obtain the SNR ratio and make the division.
+    #MISSING: will I change the feature_vector_gens to work with matrix?
+    fft_bins = np.fft.rfftfreq(window_size, d=1/sample_rate)
+
+    if neighbour_or_interval == "interval":
+      assert type(interest_freqs) == tuple, "For Interval method, a tuple must be given on interest_freqs with minimum and maximum values"
+      feature_vector_bins, feature_vector = feature_vector_gen_interval(fft_bins, fft_values, interest_freqs,
+                                                                          apply_SNR, include_extremes)
+    else:
+      pass
+      
+    fv_matrix = np.concatenate(fv_matrix_list, axis=0)
+    fv_matrix = abs(np.fft.rfft(fv_matrix, axis=-1))
+
+    return fv_bins, fv_matrix, np.concatenate(labels_matrix_list, axis=0)
+    
+
+def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval = "neighbour",
+                        method = "fast", channels = "all", channels_return = "concat",
+                        stimulation_time = 10, stimulation_time_inseconds = True, stimulation_delay = 0, stimulation_delay_inseconds = True,
+                        stride = 10, stride_inseconds = False, filter_window = None,
+                        window_size = 512, window_size_inseconds = False, 
+                        norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
+                        apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
+                        include_extremes = True,
+                        plot_average = False):
+
+  """
+    Description:
+        Generates a Feature Vector Matrix in the frequency spectrum of the signal by obtaining the FFT amplitudes at the desired bins and appending a new example on each line.
+        If neighbour_or_interval = "neighbour", a list of freq must be given on interest_freqs. This list will be as long as frequencies of interest exist 
+        If neighbour_or_interval = "interval", a tuple of minumum and maximum values must be given on interest_freqs. It will be a tuple of size 0 to 2.
+        If apply_SNR = True, then feature vector values are divided by the mean of the values of the frequencies that are not included inside the fv.
+        Stimulation time could be writte in seconds or samples.
+    
+    Inputs:
+        - signal(txt): signal to generate the feature vector
+        - sample_rate(int): sample rate to transform from waves/samples waves/sec ???
+        - labels(list): labels of the feature vector
+        - startpoint_timestamps(list):
+        - interest_freqs(list or tuple): contain the interest frequencies on a list or a tuple with the minimun and maximun values. Depending on the case
+        - neighbour_or_interval(str): Define if the feature vector is generated usin an interval or neighbour. One of this two options must be choose
+        - stimulation_time(int or float): stimulation time to select an interval. It could be in second or samples
+        - stimulation_time_inseconds(bool): to specify whether stimulation_time is written in seconds or in samples
+        - stimulation_delay(int or float): to select a delay from timestartpoint_timestamps
+        - stimulation_delay_inseconds(bool): to specify whether stimulation_delay is written in seconds or in samples
+        - stride(int): stride of the window in each step
+        - stride_inseconds(bool): to specify whether stride is written in seconds or in samples
+        - filter_window(str): To select an especiifc window 
+        - window_size(int): window size
+        - window_size_inseconds(bool): to specify whether window_size is written in seconds or in samples
+        - norm(str): normalization for the fft calculation
+        - max_bins(int): maximum number of bins, to configure neighbour method
+        - interest_bw(float): bandwidth to configure neighbour method
+        - include_harmonics(bool): Boolean to choose if onclude harmonics or not to configure neighbour method. 
+        - apply_SNR(bool): Boolean to choose if apply SNR or not. 
+        - same_bw_forSNR(bool): To choose if use the same bandwidth for the SNR or not to configure neighbour method.
+        - bw_forSNR(float): To choose a particular bandwidth for SNR calc to configure neighbour method.
+        - include_extremes(bool): Choose if include extremes or not if neighbour_orinterval = "interval" 
+        - plot_average(bool): to plot the feature vector average
+        
+    Outputs:
+        - feature_vector_bins(np.array): feature vector bins
+        - fv_matrix(np.array): matrix full of feature vector
+        - label_matrix(np.array): matrix with all the labels.
+        
+    """
+
+  assert len(labels) == len(startpoint_timestamps), "label list and startpoint_timestamps list must be of equal length"
+
+  #Window size
+  if window_size_inseconds:
+    N = window_size * sample_rate
+  else:
+    N = window_size
+  
+  #Stride size
+  if stride_inseconds:
+    stride = stride*sample_rate
+
+  #Stimulation size
+  if stimulation_time_inseconds:
+    stim_size = stimulation_time*sample_rate
+  else:
+    stim_size = stimulation_time
+    
+  if stimulation_delay_inseconds:
+    stim_delay = stimulation_delay*sample_rate
+  else:
+    stim_delay = stimulation_delay
+
+  if channels == "all":
+    channels = range(signal.shape[0])
+  
+  fv_matrix_list = []
+
+  if method == "fast" and window_size%stride != 0:
+    print("\n", "-"*100)
+    print("WARNING: this method is intended for strides that are even divisors of the window_size, if that's not the case the results may be altered, but no noticeable error will be raised. If you'd like to use this parameters without the alterations better opt for the safe_feature_matrix_gen instead.")
+    print("-"*100, "\n\n")
+    if basics.yn_quest("\tDo you wish to continue with the fast method anyways? (If N will continue with the safe method)"):
+      pass
+    else:
+      method = "safe"
+
+  if method == "fast":
+    for ch in channels:
+      temp = fast_feature_matrix_gen(signal[ch, :], sample_rate, labels, startpoint_timestamps, 
+                                    interest_freqs, neighbour_or_interval, stim_size, stim_delay, 
+                                    stride, filter_window, N, norm, max_bins, interest_bw, include_harmonics, 
+                                    apply_SNR, same_bw_forSNR, bw_forSNR, include_extremes, plot_average
+                                    )
+      fv_matrix_list.append(temp[1])
+    fv_bins = temp[0] #for all channels the bins chosen and label matrix are the same
+    label_matrix = temp[2]
+  elif method == "safe":
+    for ch in channels:
+      temp = safe_feature_matrix_gen(signal[ch, :], sample_rate, labels, startpoint_timestamps, 
+                                    interest_freqs, neighbour_or_interval, stim_size, stim_delay, 
+                                    stride, filter_window, N, norm, max_bins, interest_bw, include_harmonics, 
+                                    apply_SNR, same_bw_forSNR, bw_forSNR, include_extremes, plot_average
+                                    )
+      fv_matrix_list.append(temp[1])
+    fv_bins = temp[0] #for all channels the bins chosen and label matrix are the same
+    label_matrix = temp[2]
+  else:
+    print("Invalid method type for feature matrix generation.")
+    raise KeyboardInterrupt
+  
+  if channels_return == "concat":
+    return fv_bins, np.concatenate(fv_matrix_list, axis = 1), label_matrix
+  else:
+    return fv_bins, fv_matrix_list, label_matrix
