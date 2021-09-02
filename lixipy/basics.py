@@ -248,10 +248,10 @@ def build_many_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
         - return_joined(bool): boolean to choose
             
     Outputs:
-        - signal_dict(dict): signal dictionary 
+        - signal_dict(dict)(Optional): signal dictionary 
+        - full_pd(pd)(Optional): full pandas Dataframe
         - tag_column_names(list): tag column names or name depending on the case
         - signal_names(list of str): list of names of the files in the directory, but not necessarily the ones loaded in the dataframe
-        - full_pd(pd): full pandas Dataframe
     """    
     assert return_dict != return_joined, "return_dict and return_joined must be opposite since both or none of them can be return"
     
@@ -288,11 +288,16 @@ def build_many_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
         full_pd = pd.DataFrame()
         tag_column_names.append(None)
     
+    return_list = []
+
     if return_dict:
-        return signal_dict, tag_column_names, signal_names
-    
+        return_list.append(signal_dict)    
     elif return_joined:
-        return full_pd, tag_column_names[0], signal_names
+        return_list.append(full_pd)
+    return_list.append(tag_column_names[0])
+    return_list.append(signal_names)
+
+    return return_list
 
 #CSV loading
 def load_csv(initial_dir = "/", search_dir=True, 
