@@ -263,7 +263,7 @@ def safe_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
                             stim_size, stim_delay, stride, filter_window = None, window_size = 512, 
                             norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
                             apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
-                            include_extremes = True,
+                            include_extremes = True, print_data_loss = True,
                             plot_average = False):
     """
     Description:
@@ -281,6 +281,8 @@ def safe_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
     sample_loss = 0
     fv_matrix = None
     #FFT Calculation
+    if plot_average:
+      plt.figure()
     for i in range(len(labels)):
       l = labels[i]
       onehot = np.zeros(len(labels), dtype = float)
@@ -296,11 +298,15 @@ def safe_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
   
           if end_sample > (stim_size+t): #in case stride is not a divisor of the stimulation interval
             if start_sample < (stim_size+t):
-              sample_loss += stim_size + t - start_sample #to count the amount of samples that did not get transformed. a method to overcome this loss is to take for that window only end_sample = stim_size and start_sample = stim_size-N
+              sample_loss += stim_size + t - (end_sample - stride) #to count the amount of samples that did not get transformed. a method to overcome this loss is to take for that window only end_sample = stim_size and start_sample = stim_size-N
             break
           elif end_sample > (signal.shape[-1]): #in case signal gets to the end and a new interval doesn't fit correctly
             if start_sample < (signal.shape[-1]):
-              sample_loss += signal.shape[-1] - start_sample #to count the amount of samples that did not get transformed. a method to overcome this loss is to take for that window only end_sample = stim_size and start_sample = stim_size-N
+              sample_loss += signal.shape[-1] - (end_sample - stride) #to count the amount of samples that did not get transformed. a method to overcome this loss is to take for that window only end_sample = stim_size and start_sample = stim_size-N
+            break
+          elif end_sample == (stim_size+t): #in case stride is a divisor of the stimulation interval
+            break
+          elif end_sample == (signal.shape[-1]): #in case signal gets to the end
             break
           else:
             fft_freq, fft_val = fft_calc(signal[start_sample:end_sample], sample_rate, norm, filter_window)
@@ -325,8 +331,9 @@ def safe_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
       if plot_average and (fft_average_matrix is not None):
           plt.plot(fft_freq, np.mean(fft_average_matrix, axis = 0))
           plt.legend(["label " + str(lab) for lab in labels if startpoint_timestamps[labels.index(lab)] != []]) 
-          
-    print("The selected parameters led to the loss of ", str(sample_loss), " samples.")
+    
+    if print_data_loss:
+      print("The selected parameters led to the loss of ", str(sample_loss), " samples.")
   
     return fv_bins, fv_matrix, label_matrix
 
@@ -334,7 +341,7 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
                             stim_size, stim_delay, stride, filter_window = None, window_size = 512, 
                             norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
                             apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
-                            include_extremes = True,
+                            include_extremes = True, print_data_loss = True,
                             plot_average = False):
     """
     Description:
@@ -374,17 +381,27 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
         for n, v in enumerate(vector_reshaped_list):
           final_reshaped_vector[n:n+v.shape[0]*temp:temp,:] = v
         #print(final_reshaped_vector)
-        fv_matrix_list.append(final_reshaped_vector.copy()) #MISSING: Maybe we put this method in times and import it  and only apply the transform here.
+        fv_matrix_list.append(final_reshaped_vector.copy())
         each_label_matrix_size += final_reshaped_vector.shape[0]
       temp_labels = np.zeros((each_label_matrix_size, len(labels)))
       temp_labels[:, i] = 1.0
       labels_matrix_list.append(temp_labels)
 
     fft_bins, fft_matrix = fft_calc(np.concatenate(fv_matrix_list, axis=0), sample_rate, norm, filter_window)
-
+    onehot_labels_matrix = np.concatenate(labels_matrix_list, axis=0)
+    
+    if plot_average:
+      plt.figure()
+      for i in range(len(labels)):
+        plt.plot(fft_bins, fft_matrix[onehot_labels_matrix[:, i] == 1].mean(axis = 0), label="Label " + str(labels[i]))
+      plt.legend()
+        
     fv_bins, fv_matrix = feature_vector_gen(fft_bins, fft_matrix, interest_freqs, neighbour_or_interval, include_harmonics, apply_SNR, same_bw_forSNR, bw_forSNR, interest_bw, max_bins, include_extremes)
 
-    return fv_bins, fv_matrix, np.concatenate(labels_matrix_list, axis=0)
+    if print_data_loss:
+      print("The selected parameters led to the loss of ", str(total_dataloss), " samples.")
+
+    return fv_bins, fv_matrix, onehot_labels_matrix
     
 
 def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval = "neighbour",
@@ -394,7 +411,7 @@ def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, inter
                         window_size = 512, window_size_inseconds = False, 
                         norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
                         apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
-                        include_extremes = True,
+                        include_extremes = True, print_data_loss = True,
                         plot_average = False):
 
   """
@@ -475,29 +492,29 @@ def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, inter
     else:
       method = "safe"
 
-  if method == "fast":
-    for ch in channels:
+  for ch in channels:
+    if method == "fast":
       temp = fast_feature_matrix_gen(signal[ch, :], sample_rate, labels, startpoint_timestamps, 
                                     interest_freqs, neighbour_or_interval, stim_size, stim_delay, 
                                     stride, filter_window, N, norm, max_bins, interest_bw, include_harmonics, 
-                                    apply_SNR, same_bw_forSNR, bw_forSNR, include_extremes, plot_average
+                                    apply_SNR, same_bw_forSNR, bw_forSNR, include_extremes, print_data_loss, plot_average
                                     )
       fv_matrix_list.append(temp[1])
-    fv_bins = temp[0] #for all channels the bins chosen and label matrix are the same
-    label_matrix = temp[2]
-  elif method == "safe":
-    for ch in channels:
+    elif method == "safe":
       temp = safe_feature_matrix_gen(signal[ch, :], sample_rate, labels, startpoint_timestamps, 
                                     interest_freqs, neighbour_or_interval, stim_size, stim_delay, 
                                     stride, filter_window, N, norm, max_bins, interest_bw, include_harmonics, 
-                                    apply_SNR, same_bw_forSNR, bw_forSNR, include_extremes, plot_average
+                                    apply_SNR, same_bw_forSNR, bw_forSNR, include_extremes, print_data_loss, plot_average
                                     )
       fv_matrix_list.append(temp[1])
-    fv_bins = temp[0] #for all channels the bins chosen and label matrix are the same
-    label_matrix = temp[2]
-  else:
-    print("Invalid method type for feature matrix generation.")
-    raise KeyboardInterrupt
+    else:
+      print("Invalid method type for feature matrix generation.")
+      raise KeyboardInterrupt
+  
+  if plot_average:
+    plt.show()
+  fv_bins = temp[0] #for all channels the bins chosen and label matrix are the same
+  label_matrix = temp[2]
   
   if channels_return == "concat":
     return fv_bins, np.concatenate(fv_matrix_list, axis = 1), label_matrix
