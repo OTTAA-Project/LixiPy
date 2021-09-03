@@ -97,11 +97,12 @@ def better_listdir(initial_dir="/", search_dir=True, name_filter=None, keep_file
         - keep_files (bool): filter to keep the file type directories.
         - keep_folders (bool): filter to keep the folder type directories.
     Outputs:
+        - str: path where the search was done
         - list: list of directories that meet the specified criteria.
     """
     
     if search_dir:
-        saving_path = get_file(initial_dir=initial_dir, window_title="Where will you list directories from?")
+        saving_path = get_dir(initial_dir=initial_dir, window_title="Where will you list directories from?")
     else:
         saving_path = initial_dir
     
@@ -121,16 +122,16 @@ def better_listdir(initial_dir="/", search_dir=True, name_filter=None, keep_file
             for elem in folders_files_filtering:
                 if name_filter in elem:
                     name_filtering.append(elem)
-        if type(name_filter) == list:
+        elif type(name_filter) == list:
             for elem in folders_files_filtering:
                 if all([filt in elem for filt in name_filter]):
                     name_filtering.append(elem)
         else:
             raise ValueError("Incompatible type of name_filter parameter, should be string or list.")
 
-        return name_filter
+        return saving_path, name_filtering
     else:
-        return folders_files_filtering
+        return saving_path, folders_files_filtering
 
 #--- DataFrame Loading
 
@@ -218,7 +219,7 @@ def build_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
 def build_many_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10, 
                             names= ['Ch1', 'Ch2', 'Ch3', 'Ch4', 'x', 'y', 'z', 'mlp_labels', 'time', 'rand'],
                             tag_column_name = 'mlp_labels', tag_column_index = 7,
-                            filtering_list = [],
+                            filtering_list = [], filtering_type = "ignore",
                             initial_dir = "/", search_dir = True,
                             return_dict = False, return_joined = True):
     """
@@ -240,7 +241,8 @@ def build_many_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
         - has_tag_column(bool): if has tag column
         - tag_column_name(str): name of tag column
         - tag_column_index(int): index of tag 
-        - filtering_list (list of str): list containing file names that shouldn´t be put in the dataframe even though they are in the selected dir
+        - filtering_list (list of str): list containing file names that should or shouldn´t (depending on filtering_type) be put in the dataframe. Defaults to an empty list because the filtering_type defaults to "ignore", that way if nothing is passed regarding filtering files, all files will be loaded.
+        - filtering_type (string): if "keep" then only the files in the list will be loaded, if "ignore" then the files that are NOT in the list will be loaded. Defaults to "ignore" because the filtering_list defaults to an empty list, that way if nothing is passed regarding filtering files, all files will be loaded.
         - initial_dir(str): initial directory to get_file
         - search_dir(bool): wether to use the initial_dir as the starting point from 
         which to search the dataframe files dir or as the dataframe files dir itself
@@ -267,7 +269,7 @@ def build_many_dataframe(index_col = 0, sep = ",", header = None, skiprows= 10,
     for file in os.listdir(files_dir):
         if (".txt" in file or ".csv" in file):
             file_path = os.path.join(files_dir, file)
-            if (file not in filtering_list):
+            if (file not in filtering_list and filtering_type == "ignore") or (file in filtering_list and filtering_type == "keep"):
                 print("Loaded Signal: " + file_path)
                 file_name = file.split("-")[0]
                 
