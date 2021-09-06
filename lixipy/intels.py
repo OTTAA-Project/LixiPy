@@ -270,7 +270,7 @@ def save_model_json(history, folder_dir, training_files, **kwargs): #kwargs: mod
     #Reading other models present in the file to compare,
     #if the model is better than others it's name will be changed
     #adding "Best" to it and removing it from the latest best.
-    folder_name = read_model_json(current_model_dict, folder_dir, folder_name, only_best = True)
+    folder_name = compare_model_toprevious(current_model_dict, folder_dir, folder_name, only_best = True)
     
     # Create a directory for saving model JSON and return it to save_weights to save the model weights
     dirName = folder_dir + "/" + folder_name
@@ -288,10 +288,65 @@ def save_model_json(history, folder_dir, training_files, **kwargs): #kwargs: mod
         
     return current_model_dict, dirName
 
+#Read model JSON into a dict
+def read_model_json(path):
+    if ".json" in path:
+        with open(path, "r") as f:
+            dict_fromjson = json.load(f) #load JSON into dict
+            f.close()
+    else:
+        raise ValueError("Invalid path for model JSON loading.")
+
+    return dict_fromjson
+
+#MISSING: Load_model with read model json and get the files left to train.
+
+def model_scan(initial_dir = "/", search_dir = True, input_size=None, hidden_size=None, output_size=None):
+    folder_path, models_folder_list = basics.better_listdir(initial_dir, search_dir, name_filter = "Best", keep_files = False, keep_folders = True)
+
+    if len(models_folder_list) == 0:
+        files_used = []
+        model_path = ""
+    elif len(models_folder_list) == 1:
+        with open(os.path.join(folder_path, models_folder_list[0], "model_info.json"), "r") as f:
+            temp_dict = json.load(f)
+            files_used = temp_dict["training_files"]
+            model_path = os.path.join(folder_path, models_folder_list[0], "SavedModel")
+            f.close()
+    else:
+        if any([input_size is None, hidden_size is None, output_size is None]):
+            raise ValueError("Since there are more than one models with the 'Best' tag you should declare the sizes of each layer to know which one to use.")
+        for mf in models_folder_list:
+            with open(os.path.join(folder_path, mf, "model_info.json"), "r") as f:
+                temp_dict = json.load(f)
+                read_input_size = temp_dict["input_size"] 
+                read_hidden_size = temp_dict["hidden_size"]
+                read_output_size = temp_dict["output_size"]
+                if read_input_size == input_size and all([r == a for r, a in zip(read_hidden_size, hidden_size)]) and read_output_size == output_size:
+                    files_used = temp_dict["training_files"]
+                    model_path = os.path.join(folder_path, models_folder_list[0], "SavedModel")
+                f.close()
+
+    return model_path, files_used
+
+def model_scan_load(initial_dir = "/", search_dir = True, input_size=None, hidden_size=None, output_size=None,
+                    current_file_list = []):
+    model_path, training_files = model_scan(initial_dir, search_dir, input_size, hidden_size, output_size)
+
+    remaining_files = [f for f in current_file_list if f not in training_files]
+    try:
+        model = tf.keras.models.load_model(model_path)
+        return model, remaining_files, training_files
+    except Exception as e:
+        print("-"*10,"\n")
+        print(e)
+        print("\n", "-"*10)
+        return None, [], training_files
+
 # Read other JSON files with model descriptions and compare to current
 # if only_best = True then it will only compare the model to the ones with "Best" name
 
-def read_model_json(current_model_dict, folder_dir, folder_name, only_best = True):
+def compare_model_toprevious(current_model_dict, folder_dir, folder_name, only_best = True):
     """
         
     Description:
@@ -310,8 +365,8 @@ def read_model_json(current_model_dict, folder_dir, folder_name, only_best = Tru
             g. "hidden_size"(int): hidden layers unit amount
             h. "output_size"(int): output size
             i. "train_date"(string): date of training
-        - forlder_dir (str): directory of the folder to save the weights
-        - folder_name (str): name of the folder containing the actual JSON
+        - folder_dir (str): directory of the folder to save the weights
+        - folder_name (str): name of the folder containing the current JSON
         - only_best (bool): boolean to determinate if only the folders that have "Best" will be compared
     
     Output:
@@ -319,12 +374,11 @@ def read_model_json(current_model_dict, folder_dir, folder_name, only_best = Tru
         
     """
     nothing_tocompare = True #this boolean is used if there is no other model with the same parameters to compare to, then the current one will be the best in its category
-    for elem in os.listdir(folder_dir): #run through folders of models in the file
-        if "Best" in elem or not only_best: #taking only the ones that have "Best" on them, if only_best = True, if not we take all
-            with open(folder_dir + "/" + elem + "/model_info.json",) as f:
-                dict_fromjson = json.load(f) #load JSON into dict
-                f.close() #close the file, if not we wont be able to change folder names because files inside them will be opened
-                
+    try:
+        for elem in os.listdir(folder_dir): #run through folders of models in the file
+            if "Best" in elem or not only_best: #taking only the ones that have "Best" on them, if only_best = True, if not we take all
+                dict_fromjson = read_model_json(folder_dir + "/" + elem + "/model_info.json")
+
                 if (current_model_dict["input_size"] == dict_fromjson["input_size"]) and (current_model_dict["hidden_size"] == dict_fromjson["hidden_size"]) and (current_model_dict["output_size"] == dict_fromjson["output_size"]):
                     nothing_tocompare = False #if there is at least one similar model then we have something to compare to
                     if model_comparison(current_model_dict, dict_fromjson): #run model_comparison
@@ -334,6 +388,9 @@ def read_model_json(current_model_dict, folder_dir, folder_name, only_best = Tru
                         break #if we found the one that our model is best to, then there's no reason to keep searching
                     else:
                         print("The model is not better than the latest best, it will still be saved as itself.")
+    except FileNotFoundError:
+        nothing_tocompare = True
+        os.mkdir(folder_dir)
                         
     if nothing_tocompare: #if there is no other model to compare to or if the ones that exist don't have the same architecture, then our current model is the best on its category
         folder_name = "Best " + folder_name
