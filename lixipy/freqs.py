@@ -370,9 +370,6 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
         
     fv_bins, fv_matrix = feature_vector_gen(fft_bins, fft_matrix, interest_freqs, neighbour_or_interval, include_harmonics, apply_SNR, same_bw_forSNR, bw_forSNR, interest_bw, max_bins, include_extremes)
 
-    if print_data_loss:
-      print("The selected parameters led to the loss of ", str(total_dataloss), " samples.")
-
     return fv_bins, fv_matrix, onehot_labels_matrix
     
 

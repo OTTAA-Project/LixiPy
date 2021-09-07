@@ -64,4 +64,7 @@ def fast_feature_matrix_gen(signal, labels, startpoint_timestamps,
     fv_matrix = np.concatenate(fv_matrix_list, axis=0)
     onehot_labels_matrix = np.concatenate(labels_matrix_list, axis=0)
     
+    if print_data_loss:
+      print("The selected parameters led to the loss of ", str(total_dataloss), " samples.")
+
     return fv_matrix, onehot_labels_matrix
