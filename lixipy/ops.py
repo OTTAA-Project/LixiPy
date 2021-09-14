@@ -89,12 +89,17 @@ def preprocess(signal, fs=200, f_notch=50, Q_notch=30, bp_order=5, bp_type='butt
 #--- Timestamps Location
 
 def timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2, 3, 4], 
-                   export_dict = True, export_list = True):
+                   export_dict = True, export_list = True, list_end = False):
     """
     Description:
         
-        If export_dict, then returns a dictionary where the keys will be the label and the value will be a list with the startpoint_timestamp of each label
-        If export_list, then returns a list of lists in order
+        Find the index of the start and end of the intervals of labels in a column label_column_name inside dataframe.
+        If export_dict, then returns a dictionary of dictionaries where the first keys will be the label
+        the second keys will choose between startpoint or endpoint timestamps and the value will be a list with the timestamps.
+        If export_list, then returns a list of lists of the startpoint timestamps if list_end is False, or endpoint_timestamps if list_end is True,
+        in the same order they appear in the dictionary mentioned above order. 
+        Take into consideration that, using the inclusive:exclusive paradigm of Python on interval declaration, the endpoint timestamps must be increased by 1
+        to include the whole interval, since this are the last index of each labels intervals.
         
     Inputs:
         - dataframe(pd): pandas Dataframe
@@ -102,31 +107,33 @@ def timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2, 
         - labels(list): list with the labels 
         - export_dict(bool): boolean to choose if export as a dictionary 
         - export_list(bool): boolean to choose if export as a list of lists
+        - end_list(bool): boolean to choose wether to export the startpoint or endpoint timestamps in the export list.
        
     Outputs:
         - timestamps_dict(dict): timestamps dictionary
         - timestamps_list(list): timestamps list of lists
         
     """
-    #WARNIGN - ERROR SI LOS DOS EXPORT SON FALSE
     timestamps_dict = {}
     for l in labels:
-        timestamps_dict["Label " + str(l)] = []
+        timestamps_dict["Label " + str(l)] = {"Startpoint": [], "Endpoint":[]}
 
     prev_tag = None
     for i in dataframe.index:
         tag = dataframe[label_column_name][i]
         for l in labels:
             if l == tag and tag != prev_tag:
-                timestamps_dict["Label " + str(l)].append(i)
+                timestamps_dict["Label " + str(l)]["Startpoint"].append(i)
+                if i!=0:
+                    timestamps_dict["Label " + str(prev_tag)]["Endpoint"].append(i-1)
         prev_tag = tag
+
+    timestamps_dict["Label " + str(prev_tag)]["Endpoint"].append(i)
     
-    # timestamps_list = []
-    # for k in timestamps_dict:
-    #     timestamps_list.append(timestamps_dict[k])
-    #better method:
-    
-    timestamps_list = [element for element in timestamps_dict.values()]
+    if list_end:
+        timestamps_list = [element["Endpoint"] for element in timestamps_dict.values()]
+    else:
+        timestamps_list = [element["Startpoint"] for element in timestamps_dict.values()]
     
     if export_dict and export_list:
         return timestamps_dict, timestamps_list
