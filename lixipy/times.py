@@ -12,7 +12,8 @@ else:
 import numpy as np
 
 def fast_feature_matrix_gen(signal, labels, startpoint_timestamps,
-                            stim_size, stim_delay, stride, 
+                            stim_size = 0, stim_delay = 0, stride = 8,
+                            endpoint_timestamps = None,
                             filter_window = None, window_size = 512, 
                             print_data_loss = True
                             ):
@@ -36,7 +37,10 @@ def fast_feature_matrix_gen(signal, labels, startpoint_timestamps,
     for i in range(len(labels)):
       each_label_matrix_size = 0
       for t in startpoint_timestamps[i]:
-        vector = signal[t+stim_delay:t+stim_size]
+        if endpoint_timestamps is None:
+          vector = signal[t+stim_delay:t+stim_size]
+        else:
+          vector = signal[t+stim_delay:endpoint_timestamps[i][startpoint_timestamps[i].index(t)]+1]
         end_list_for_dataloss = []
         vector_reshaped_list = []
         final_shape = 0
