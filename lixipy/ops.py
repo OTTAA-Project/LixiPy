@@ -121,14 +121,15 @@ def timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2, 
     prev_tag = None
     for i in dataframe.index:
         tag = dataframe[label_column_name][i]
-        for l in labels:
-            if l == tag and tag != prev_tag:
-                timestamps_dict["Label " + str(l)]["Startpoint"].append(i)
-                if i!=0:
-                    timestamps_dict["Label " + str(prev_tag)]["Endpoint"].append(i-1)
+        if tag != prev_tag:
+            if tag in labels:
+                timestamps_dict["Label " + str(tag)]["Startpoint"].append(i)
+            if i!=0 and prev_tag in labels:
+                timestamps_dict["Label " + str(prev_tag)]["Endpoint"].append(i-1)
         prev_tag = tag
 
-    timestamps_dict["Label " + str(prev_tag)]["Endpoint"].append(i)
+    if prev_tag in labels:
+        timestamps_dict["Label " + str(prev_tag)]["Endpoint"].append(i)
     
     if list_end:
         timestamps_list = [element["Endpoint"] for element in timestamps_dict.values()]

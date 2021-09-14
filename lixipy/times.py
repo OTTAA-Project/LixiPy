@@ -58,7 +58,7 @@ def fast_feature_matrix_gen(signal, labels, startpoint_timestamps,
         temp = len(vector_reshaped_list)
         for n, v in enumerate(vector_reshaped_list):
           final_reshaped_vector[n:n+v.shape[0]*temp:temp,:] = v
-        #print(final_reshaped_vector)
+        #print(final_reshaped_vector.shape)
         fv_matrix_list.append(final_reshaped_vector.copy())
         each_label_matrix_size += final_reshaped_vector.shape[0]
       temp_labels = np.zeros((each_label_matrix_size, len(labels)))
