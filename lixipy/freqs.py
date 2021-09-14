@@ -171,7 +171,7 @@ def feature_vector_gen_interval(fft_freq, fft_values, interest_freqs,
 
 def feature_vector_gen_neighbour(fft_freq, fft_values, interest_freqs, 
                                   include_harmonics = True, apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0,
-                                  interest_bw = 1, max_bins = 5):
+                                  interest_bw = 1, max_bins = 40):
     """
     Description:
         Calculate the feature vector bins and values
@@ -201,26 +201,25 @@ def feature_vector_gen_neighbour(fft_freq, fft_values, interest_freqs,
     mask = []
     maskSNR = []
     
-    for particular_freqs in [freqs for freqs in interest_freqs if freqs is not None]: #if the list of interest_freqs has a None value, then there's a tag of no stimuli
-        bins_sum = 0
-        harm_bins_sum = 0
-        for i in range(N):
-            fft_bin = fft_freq[i] 
-            
-            if fft_bin <= (particular_freqs + interest_bw) and fft_bin >= (particular_freqs - interest_bw) and bins_sum < max_bins:
-                mask.append(True)
-                bins_sum += 1
-            elif fft_bin <= (2*particular_freqs + interest_bw) and fft_bin >= (2*particular_freqs - interest_bw) and harm_bins_sum < max_bins and include_harmonics: 
-                mask.append(True)
-                harm_bins_sum += 1
+    filtered_freqs = [freqs for freqs in interest_freqs if freqs is not None]
+    bins_sum = 0
+    harm_bins_sum = 0
+    for i in range(N):
+        fft_bin = fft_freq[i] 
+        if any([fft_bin <= (particular_freqs + interest_bw) and fft_bin >= (particular_freqs - interest_bw) for particular_freqs in filtered_freqs]) and bins_sum < max_bins:
+            mask.append(True)
+            #bins_sum += 1 REDO: used to loop on each freq so max_bins worked for each frequency, now its global, change or delete
+        elif any([fft_bin <= (2*particular_freqs + interest_bw) and fft_bin >= (2*particular_freqs - interest_bw) for particular_freqs in filtered_freqs]) and harm_bins_sum < max_bins and include_harmonics: 
+            mask.append(True)
+            #harm_bins_sum += 1 REDO: used to loop on each freq so max_bins worked for each frequency, now its global, change or delete
+        else:
+            mask.append(False)
+        
+        if apply_SNR and not same_bw_forSNR:
+            if any([fft_bin >= (particular_freqs + bw_forSNR) or fft_bin <= (particular_freqs - bw_forSNR) for particular_freqs in filtered_freqs]) or (any([fft_bin >= (2*particular_freqs + bw_forSNR) or fft_bin <= (2*particular_freqs - bw_forSNR) for particular_freqs in filtered_freqs]) and include_harmonics):
+                maskSNR.append(True)
             else:
-                mask.append(False)
-            
-            if apply_SNR and not same_bw_forSNR:
-                if (fft_bin >= (particular_freqs + bw_forSNR) or fft_bin <= (particular_freqs - bw_forSNR)) or ((fft_bin >= (2*particular_freqs + bw_forSNR) or fft_bin <= (2*particular_freqs - bw_forSNR)) and include_harmonics):
-                    maskSNR.append(True)
-                else:
-                    maskSNR.append(False)
+                maskSNR.append(False)
     
     mask = np.array(mask)
     maskSNR = np.array(maskSNR)
@@ -338,7 +337,7 @@ def safe_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
     return fv_bins, fv_matrix, label_matrix
 
 def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval,
-                            stim_size, stim_delay, stride, filter_window = None, window_size = 512, 
+                            stim_size = 0, stim_delay = 0, endpoint_timestamps = None, stride = 8, filter_window = None, window_size = 512, 
                             norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
                             apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
                             include_extremes = True, print_data_loss = True,
@@ -357,7 +356,7 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
         
     """
     time_fv_matrix, onehot_labels_matrix = times.fast_feature_matrix_gen(signal, labels, startpoint_timestamps, 
-                                                                        stim_size, stim_delay, stride, filter_window, 
+                                                                        stim_size, stim_delay, stride, endpoint_timestamps, filter_window, 
                                                                         window_size, print_data_loss)
 
     fft_bins, fft_matrix = fft_calc(time_fv_matrix, sample_rate, norm, filter_window)
@@ -376,7 +375,8 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
 def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval = "neighbour",
                         method = "fast", channels = "all", channels_return = "concat",
                         stimulation_time = 10, stimulation_time_inseconds = True, stimulation_delay = 0, stimulation_delay_inseconds = True,
-                        stride = 10, stride_inseconds = False, filter_window = None,
+                        endpoint_timestamps = None,
+                        stride = 8, stride_inseconds = False, filter_window = None,
                         window_size = 512, window_size_inseconds = False, 
                         norm = "basic", max_bins = 5, interest_bw = 1.0, include_harmonics = True, 
                         apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0, 
@@ -464,7 +464,7 @@ def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, inter
   for ch in channels:
     if method == "fast":
       temp = fast_feature_matrix_gen(signal[ch, :], sample_rate, labels, startpoint_timestamps, 
-                                    interest_freqs, neighbour_or_interval, stim_size, stim_delay, 
+                                    interest_freqs, neighbour_or_interval, stim_size, stim_delay, endpoint_timestamps,
                                     stride, filter_window, N, norm, max_bins, interest_bw, include_harmonics, 
                                     apply_SNR, same_bw_forSNR, bw_forSNR, include_extremes, print_data_loss, plot_average
                                     )
