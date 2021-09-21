@@ -14,7 +14,7 @@ import numpy as np
 def fast_feature_matrix_gen(signal, labels, startpoint_timestamps,
                             stim_size = 0, stim_delay = 0, stride = 8,
                             endpoint_timestamps = None,
-                            filter_window = None, window_size = 512, 
+                            window_size = 512, 
                             print_data_loss = True
                             ):
 

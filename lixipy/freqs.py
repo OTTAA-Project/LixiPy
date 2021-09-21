@@ -356,7 +356,7 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
         
     """
     time_fv_matrix, onehot_labels_matrix = times.fast_feature_matrix_gen(signal, labels, startpoint_timestamps, 
-                                                                        stim_size, stim_delay, stride, endpoint_timestamps, filter_window, 
+                                                                        stim_size, stim_delay, stride, endpoint_timestamps,
                                                                         window_size, print_data_loss)
 
     fft_bins, fft_matrix = fft_calc(time_fv_matrix, sample_rate, norm, filter_window)
@@ -371,6 +371,24 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
 
     return fv_bins, fv_matrix, onehot_labels_matrix
     
+def feature_matrix_from_times(time_fv_matrix, onehot_labels_matrix, sample_rate,
+                              labels, interest_freqs, interest_bw = 1.0, max_bins = 40,
+                              neighbour_or_interval = "neighbour", include_harmonics = True, include_extremes = True,
+                              norm = "basic", filter_window = None,
+                              apply_SNR = False, same_bw_forSNR = True, bw_forSNR = 1.0,
+                              plot_average = False):
+
+    fft_bins, fft_matrix = fft_calc(time_fv_matrix, sample_rate, norm, filter_window)
+    
+    if plot_average:
+      plt.figure()
+      for i in range(len(labels)):
+        plt.plot(fft_bins, fft_matrix[onehot_labels_matrix[:, i] == 1].mean(axis = 0), label="Label " + str(labels[i]))
+      plt.legend()
+        
+    fv_bins, fv_matrix = feature_vector_gen(fft_bins, fft_matrix, interest_freqs, neighbour_or_interval, include_harmonics, apply_SNR, same_bw_forSNR, bw_forSNR, interest_bw, max_bins, include_extremes)
+
+    return fv_bins, fv_matrix
 
 def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, interest_freqs, neighbour_or_interval = "neighbour",
                         method = "fast", channels = "all", channels_return = "concat",
