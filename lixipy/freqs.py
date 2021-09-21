@@ -359,15 +359,12 @@ def fast_feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, 
                                                                         stim_size, stim_delay, stride, endpoint_timestamps,
                                                                         window_size, print_data_loss)
 
-    fft_bins, fft_matrix = fft_calc(time_fv_matrix, sample_rate, norm, filter_window)
-    
-    if plot_average:
-      plt.figure()
-      for i in range(len(labels)):
-        plt.plot(fft_bins, fft_matrix[onehot_labels_matrix[:, i] == 1].mean(axis = 0), label="Label " + str(labels[i]))
-      plt.legend()
-        
-    fv_bins, fv_matrix = feature_vector_gen(fft_bins, fft_matrix, interest_freqs, neighbour_or_interval, include_harmonics, apply_SNR, same_bw_forSNR, bw_forSNR, interest_bw, max_bins, include_extremes)
+    fv_bins, fv_matrix = feature_matrix_from_times(time_fv_matrix, onehot_labels_matrix, sample_rate,
+                                                  labels, interest_freqs, interest_bw, max_bins,
+                                                  neighbour_or_interval, include_harmonics, include_extremes,
+                                                  norm, filter_window,
+                                                  apply_SNR, same_bw_forSNR, bw_forSNR,
+                                                  plot_average)
 
     return fv_bins, fv_matrix, onehot_labels_matrix
     
