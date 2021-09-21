@@ -11,6 +11,7 @@ else:
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy.optimize import minimize
 import scipy.signal as sgn
 
@@ -88,11 +89,10 @@ def preprocess(signal, fs=200, f_notch=50, Q_notch=30, bp_order=5, bp_type='butt
 
 #--- Timestamps Location
 
-def timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2, 3, 4], 
-                   export_dict = True, export_list = True, list_end = False):
+def interval_timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2], 
+                            export_dict = True, export_list = True, list_end = False):
     """
     Description:
-        
         Find the index of the start and end of the intervals of labels in a column label_column_name inside dataframe.
         If export_dict, then returns a dictionary of dictionaries where the first keys will be the label
         the second keys will choose between startpoint or endpoint timestamps and the value will be a list with the timestamps.
@@ -112,11 +112,10 @@ def timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2, 
     Outputs:
         - timestamps_dict(dict): timestamps dictionary
         - timestamps_list(list): timestamps list of lists
-        
     """
     timestamps_dict = {}
     for l in labels:
-        timestamps_dict["Label " + str(l)] = {"Startpoint": [], "Endpoint":[]}
+        timestamps_dict["Label " + str(l)] = {"Startpoint":[], "Endpoint":[]}
 
     prev_tag = None
     for i in dataframe.index:
@@ -136,6 +135,83 @@ def timestamps_loc(dataframe, label_column_name = 'mlp_labels', labels = [1, 2, 
     else:
         timestamps_list = [element["Startpoint"] for element in timestamps_dict.values()]
     
+    if export_dict and export_list:
+        return timestamps_dict, timestamps_list
+    
+    elif export_dict:
+        return timestamps_dict
+    
+    elif export_list:
+        return timestamps_list
+
+def markers_timestamps_loc(dataframe, label_column_name = "mlp_labels", labels = [1,2],
+                            export_dict = True, export_list = True, 
+                            list_end = False, list_others=False, interval_duration=None):
+
+    """
+    Description:
+        Find the index for marker labels in a column label_column_name inside dataframe.
+        If and interval_duration is provided, then this markers can be interpreted as interval beginings,
+        and return both the end of each interval marked and the begining and end of intervals in between.
+        If export_dict, then returns a dictionary of dictionaries where the first keys will be the label
+        the second keys will choose between startpoint or endpoint timestamps and the value will be a list with the timestamps.
+        If export_list, then returns a list of lists of the startpoint timestamps if list_end is False, or endpoint_timestamps if list_end is True,
+        in the same order they appear in the dictionary mentioned above order. 
+        Take into consideration that, using the inclusive:exclusive paradigm of Python on interval declaration, the endpoint timestamps must be increased by 1
+        to include the whole interval, since this are the last index of each labels intervals.
+        
+    Inputs:
+        - dataframe(pd): pandas Dataframe
+        - label_column_name(str): name of the label column
+        - labels(list): list with the labels 
+        - export_dict(bool): boolean to choose if export as a dictionary 
+        - export_list(bool): boolean to choose if export as a list of lists
+        - list_end(bool): boolean to choose wether to export the startpoint or endpoint timestamps in the export list. Needs providing an interval_duration.
+        - list_other(bool) : boolean to choose wether to include the intervals in between the marked ones in the analysis. Needs providing an interval_duration.
+        - interval_duration(int) : defined duration for virtual interval of analysis that start on the marker appearance and end after interval_duration samples.
+
+    Outputs:
+        - timestamps_dict(dict): timestamps dictionary
+        - timestamps_list(list): timestamps list of lists 
+    """
+
+    marker_dict, marker_list = interval_timestamps_loc(dataframe, label_column_name, labels)
+
+    if list_end or list_others:
+        if interval_duration is None or interval_duration <= 0:
+            raise ValueError("For the method to obtain the endpoint timestamps and/or any timestamp of the intervals in between, you need to provide the interval duration.")
+    
+        for k in marker_dict.keys():
+            marker_dict[k]["Endpoint"] = [t + interval_duration for t in marker_dict[k]["Startpoint"]]
+
+        if list_others:
+
+            #to identify the in-between intervals we'll recreate the labels vector with an specific tag for those "other" intervals
+            others_label = 0
+            while others_label in labels:
+                others_label += 1
+            
+            aux_labels = np.full(dataframe[label_column_name].values.shape[0], others_label)
+
+            for k in marker_dict.keys():
+                lab = int(k.split(" ")[-1])
+
+                for start, end in zip(marker_dict[k]["Startpoint"], marker_dict[k]["Endpoint"]):
+                    aux_labels[start:end+1] = np.full(end+1-start, lab)
+
+            aux_labels_df = pd.DataFrame(aux_labels, columns=[label_column_name])
+            others_marker_dict = interval_timestamps_loc(aux_labels_df, label_column_name, labels=[others_label],
+                                                        export_list = False)
+
+            marker_dict["Others"] = others_marker_dict["Label " + str(others_label)]
+            
+    if list_end:
+        timestamps_list = [element["Endpoint"] for element in marker_dict.values()]
+    else:
+        timestamps_list = [element["Startpoint"] for element in marker_dict.values()]
+
+    timestamps_dict = marker_dict
+
     if export_dict and export_list:
         return timestamps_dict, timestamps_list
     
