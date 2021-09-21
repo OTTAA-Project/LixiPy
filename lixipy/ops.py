@@ -177,9 +177,9 @@ def markers_timestamps_loc(dataframe, label_column_name = "mlp_labels", labels =
 
     marker_dict, marker_list = interval_timestamps_loc(dataframe, label_column_name, labels)
 
-    if list_end or list_others:
+    if list_end or list_others or interval_duration is not None:
         if interval_duration is None or interval_duration <= 0:
-            raise ValueError("For the method to obtain the endpoint timestamps and/or any timestamp of the intervals in between, you need to provide the interval duration.")
+            raise ValueError("For the method to obtain the endpoint timestamps and/or any timestamp of the intervals in between, you need to provide a greater than zero integer as the interval duration.")
     
         for k in marker_dict.keys():
             marker_dict[k]["Endpoint"] = [t + interval_duration for t in marker_dict[k]["Startpoint"]]
@@ -220,6 +220,50 @@ def markers_timestamps_loc(dataframe, label_column_name = "mlp_labels", labels =
     
     elif export_list:
         return timestamps_list
+
+def label_interval_correspondance(timestamps_dict, index, other_return_value = "other"):
+
+    """
+    Description:
+        Method for finding which label a certain index corresponds to based on the timestamps_dict
+        obtained through the interval_timestamps_loc or markers_timestamps_loc method.
+        Although it'll still work, if the timestamps for the fill-in intervals is not provided the method will be
+        slower, since it'll discard being in any of the labeled intervals first.
+        If the dictionary is obtained through other mediums, this is the structure it should have:
+        {
+        "Label X":
+            {
+            "Startpoint": [list of integers of startpoints for label X],
+            "Endpoint": [list of integers of startpoints for label X]
+            },
+        "Label Y":
+            {...}
+        "Others": (Optional, the startpoints and enpoints of the fill-in intervals between intervals of labels)
+            {...}
+        }
+
+    Inputs:
+        - timestamps_dict(dict): dictionary with the timestamps for startpoint and enpoints of intervals of labels, obtained
+        through the any of the timestamps_loc methods, or at least of the from shown above.
+        - index(int): index that shall be analysied correspondance for.
+        - others_return_value(Any): value to be returned when the index falls into an "Other" category, corresponding to
+        the fill-in intervals, or the method doesn't find an interval that index falls into (which should be comparative circumstances)
+
+    Outputs:
+        - label(Any): label the index corresponds to, or other_return_value if the index corresponds to the "Other" category
+        or doesn't fit in any of the intervals passed.        
+    """
+    for k in timestamps_dict.keys():
+        if k == "Others":
+            lab = other_return_value
+        else:
+            lab = int(k.split(" ")[-1])
+
+        for start, end in zip(timestamps_dict[k]["Startpoint"], timestamps_dict[k]["Endpoint"]):
+            if start <= index <= end:
+                return lab
+        
+    return other_return_value
 
 #Index Finder
 def find_index(array, value, find_alternative = True, ascending_descending_array = True):
