@@ -10,6 +10,7 @@ else:
     from lixipy import intels
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 def fast_feature_matrix_gen(signal, labels, startpoint_timestamps,
                             stim_size = 0, stim_delay = 0, stride = 8,
@@ -72,3 +73,101 @@ def fast_feature_matrix_gen(signal, labels, startpoint_timestamps,
       print("The selected parameters led to the loss of ", str(total_dataloss), " samples.")
 
     return fv_matrix, onehot_labels_matrix
+
+def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps,
+                        method = "fast", channels = "all", channels_return = "concat",
+                        stimulation_time = 10, stimulation_time_inseconds = True, 
+                        stimulation_delay = 0, stimulation_delay_inseconds = True,
+                        endpoint_timestamps = None,
+                        stride = 8, stride_inseconds = False,
+                        window_size = 512, window_size_inseconds = False, 
+                        print_data_loss = True,
+                        plot_average = False):
+
+  """
+    Description:
+        Generates a Feature Vector Matrix in the time spectrum of the signal by croppin the signal.
+        All time durations can be written in seconds or samples.
+    
+    Inputs:
+        - signal(txt): signal to generate the feature vector
+        - sample_rate(int): sampling frequency the signal was obtained in.
+        - labels(list): labels of the feature vector
+        - startpoint_timestamps(list):
+        - stimulation_time(int or float): stimulation time to select an interval. It could be in second or samples
+        - stimulation_time_inseconds(bool): to specify whether stimulation_time is written in seconds or in samples
+        - stimulation_delay(int or float): to select a delay from timestartpoint_timestamps
+        - stimulation_delay_inseconds(bool): to specify whether stimulation_delay is written in seconds or in samples
+        - stride(int): stride of the window in each step
+        - stride_inseconds(bool): to specify whether stride is written in seconds or in samples
+        - window_size(int): window size
+        - window_size_inseconds(bool): to specify whether window_size is written in seconds or in samples
+        - print_data_loss(bool): specifies the amount of samples that are lost for the window not coinciding exactly with the signal shape.
+        - plot_average(bool): to plot the feature vector average
+        
+    Outputs:
+        - fv_matrix(np.array): matrix full of feature vector
+        - label_matrix(np.array): matrix with all the labels.
+        
+    """
+
+  assert len(labels) == len(startpoint_timestamps), "label list and startpoint_timestamps list must be of equal length"
+
+  #Window size
+  if window_size_inseconds:
+    N = window_size * sample_rate
+  else:
+    N = window_size
+  
+  #Stride size
+  if stride_inseconds:
+    stride = stride*sample_rate
+
+  #Stimulation size
+  if stimulation_time_inseconds:
+    stim_size = stimulation_time*sample_rate
+  else:
+    stim_size = stimulation_time
+    
+  if stimulation_delay_inseconds:
+    stim_delay = stimulation_delay*sample_rate
+  else:
+    stim_delay = stimulation_delay
+
+  if channels == "all":
+    channels = range(signal.shape[0])
+  
+  fv_matrix_list = []
+
+  if method == "fast" and window_size%stride != 0:
+    print("\n", "-"*100)
+    print("WARNING: this method is intended for strides that are even divisors of the window_size, if that's not the case the results may be altered, but no noticeable error will be raised. If you'd like to use this parameters without the alterations better opt for the safe_feature_matrix_gen instead.")
+    print("-"*100, "\n\n")
+    if basics.yn_quest("\tDo you wish to continue with the fast method anyways? (If N will continue with the safe method)"):
+      pass
+    else:
+      method = "safe"
+
+  for ch in channels:
+    if method == "fast":
+      temp = fast_feature_matrix_gen(signal[ch, :], labels, startpoint_timestamps, 
+                                    stim_size, stim_delay, stride, endpoint_timestamps,
+                                    N, print_data_loss, plot_average
+                                    )
+      fv_matrix_list.append(temp[1])
+    elif method == "safe":
+      print("Safe method not fully developed yet")
+      fv_matrix_list.append(temp[1])
+    else:
+      print("Invalid method type for feature matrix generation.")
+      raise KeyboardInterrupt
+  
+  #if plot_average: #Not ready yet.
+  #  plt.show()
+  fv_bins = temp[0] #for all channels the bins chosen and label matrix are the same
+  label_matrix = temp[2]
+  
+  if channels_return == "concat":
+    return fv_bins, np.concatenate(fv_matrix_list, axis = 1), label_matrix
+  else:
+    return fv_bins, fv_matrix_list, label_matrix
