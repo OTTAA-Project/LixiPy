@@ -408,7 +408,7 @@ def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, inter
     
     Inputs:
         - signal(txt): signal to generate the feature vector
-        - sample_rate(int): sample rate to transform from waves/samples waves/sec ???
+        - sample_rate(int): sampling frequency the signal was obtained in.
         - labels(list): labels of the feature vector
         - startpoint_timestamps(list):
         - interest_freqs(list or tuple): contain the interest frequencies on a list or a tuple with the minimun and maximun values. Depending on the case
@@ -504,3 +504,21 @@ def feature_matrix_gen(signal, sample_rate, labels, startpoint_timestamps, inter
     return fv_bins, np.concatenate(fv_matrix_list, axis = 1), label_matrix
   else:
     return fv_bins, fv_matrix_list, label_matrix
+
+def command_simulation(signal_array = None, labels_array = None,
+                      signal_pd = None, signal_column_name = ["Ch1", "Ch2", "Ch3", "Ch4"], labels_column_name = 'mlp_labels',
+                      ):
+
+    if signal_array is not None and labels_array is not None:
+        signal = signal_array
+        labels = labels_array
+    elif signal_pd is not None:
+        signal = signal_pd[signal_column_name].values
+        labels = signal_pd[labels_column_name].values
+
+    #THE IDEA IS TO USE THE FAST_FV_MATRIX_GEN for SIGNAL and the TIMES FAST_FEATURE_MATRIX_GEN for LABELS
+    # with only one label = [0] and only one set of startpoint and endpoint timestamps = [[0]] & [[labels.shape[0]]]
+    # then the gt can be chosen from the generated matrix of labels as the first sample, the last, or the average/median/etc
+    # the pred is obtained from predicting on the SIGNAL MATRIX
+    
+    
